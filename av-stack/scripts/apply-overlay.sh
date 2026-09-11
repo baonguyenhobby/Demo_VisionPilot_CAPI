@@ -23,7 +23,10 @@ if [[ ! -d "${VP}" ]]; then
 fi
 
 echo "av-stack/overlay -> vision_pilot/VisionPilot"
-cp -a "${AVSTACK}/overlay/VisionPilot/app/av-stack"                "${VP}/app/"
+for d in common control perception planning sensing; do
+    cp -a "${AVSTACK}/overlay/VisionPilot/app/${d}" "${VP}/app/"
+done
+cp -a "${AVSTACK}/overlay/VisionPilot/app/av_stack.cmake"          "${VP}/app/"
 cp -a "${AVSTACK}/overlay/VisionPilot/cmake/."                     "${VP}/cmake/"
 cp -a "${AVSTACK}/overlay/VisionPilot/modules/middleware_interfaces/ap_interface" \
                                                                    "${VP}/modules/middleware_interfaces/"
@@ -31,7 +34,9 @@ cp -a "${AVSTACK}/overlay/VisionPilot/config/vision_pilot_ap.conf" "${VP}/config
 
 echo
 echo "copied:"
-find "${VP}/app/av-stack" "${VP}/cmake/AraApplication.cmake" \
+find "${VP}/app/av_stack.cmake" "${VP}/app/sensing" "${VP}/app/perception" \
+     "${VP}/app/planning" "${VP}/app/control" "${VP}/app/common" \
+     "${VP}/cmake/AraApplication.cmake" \
      "${VP}/modules/middleware_interfaces/ap_interface" -type f | sed "s|${VP}/|  |"
 
 cat <<'EDITS'
@@ -62,11 +67,14 @@ submodule diff stays legible.
    Order matters: ap_interface checks for ap::capi, and both must exist before
    app/ is descended into.
 
-2. VisionPilot/app/CMakeLists.txt — at the end:
+2. VisionPilot/app/CMakeLists.txt — at the end, one guarded line:
 
    if(ENABLE_AP_INTERFACE)
-       add_subdirectory(av-stack)
+       include(${CMAKE_CURRENT_LIST_DIR}/av_stack.cmake)
    endif()
+
+   include(), not add_subdirectory(): the components sit directly under app/,
+   so there is no subdirectory to descend into.
 
 Then, from the repository root:
 

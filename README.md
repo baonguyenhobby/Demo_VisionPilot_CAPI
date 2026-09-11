@@ -15,7 +15,8 @@ Demo_VisionPilot_CAPI/
 │   ├── model/           the AUTOSAR model — 12 ARXML files
 │   ├── overlay/         what gets copied into the vision_pilot submodule
 │   │   └── VisionPilot/
-│   │       ├── app/av-stack/    the four AAs + the shared-memory ring
+│   │       ├── app/            the four AAs + the shared-memory ring,
+│   │       │                 dropped straight into upstream's app/
 │   │       ├── cmake/           AraApplication.cmake — locating an INSTALLED SDK
 │   │       ├── modules/.../ap_interface/   ap_runtime: ara::core, EM, PHM
 │   │       └── config/          vision_pilot_ap.conf

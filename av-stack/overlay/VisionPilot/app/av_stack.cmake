@@ -3,7 +3,13 @@
 #
 # The AV stack, decomposed into four Adaptive Applications: Sensing,
 # Perception, Planning, Control. They live under app/ beside upstream's
-# VisionPilot binary, and are NOT four separate projects. That is deliberate: they share config / logging / common, they each
+# VisionPilot binary, and are NOT four separate projects.
+#
+# This file is include()d from app/CMakeLists.txt rather than being a
+# subdirectory, so that the component directories sit directly under app/ and
+# upstream's own CMakeLists.txt gains exactly one guarded line. include() does
+# not change CMAKE_CURRENT_SOURCE_DIR, so the relative SOURCES paths below
+# resolve against app/. That is deliberate: they share config / logging / common, they each
 # need a different subset of the existing module libraries, and this tree
 # already knows how to find ONNX Runtime, OpenCV and CUDA. Four standalone
 # projects would mean four copies of that knowledge and four chances for them to

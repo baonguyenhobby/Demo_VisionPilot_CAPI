@@ -22,9 +22,9 @@ Demo_VisionPilot_CAPI/
 │   ├── docs/
 │   │   ├── ARCHITECTURE.md      design decisions, and what is deliberately absent
 │   │   └── TESTING.md           four stages, cheapest falsification first
-│   ├── patches/       additive patch against upstream (superseded — see status)
 │   └── scripts/
 │       └── apply-overlay.sh     copies overlay/ in, prints the CMake edits
+├── patches/           additive patch against upstream (superseded — see status)
 ├── vision_pilot/      submodule @ f9fb997
 └── capi/              submodule @ 112916a (v1.0.0)
 ```
@@ -125,7 +125,7 @@ It is written against the real `ara::com` API — `Subscribe`, `GetNewSamples`,
 
 **Known gaps.**
 
-- `av-stack/patches/` still describes the superseded two-AA layout.
+- `patches/` still describes the superseded two-AA layout.
 - `av-stack/docs/ARCHITECTURE.md` still describes VisionPilot + VehicleBench.
 - InstanceSpecifiers are constants in the four `main.cpp` files rather than
   config keys, because `modules/config` has no `ap_*` fields yet.

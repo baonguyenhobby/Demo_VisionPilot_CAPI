@@ -80,7 +80,7 @@ Then, from the repository root:
 
    cmake -DENABLE_AP_INTERFACE=ON -DENABLE_ROS2_INTERFACE=OFF -DGPU=OFF \
          -DARA_GEN_OUTPUT="$ARA_GEN_OUT" \
-         -DCMAKE_PREFIX_PATH="$SDK_INST_DIR" \
+         -DCMAKE_PREFIX_PATH="$ARA_SYSROOT/ara/framework/1.0.0;$ARA_SYSROOT/usr" \
          -DONNXRUNTIME_ROOT=<path> ..
    make vp_control -j1        # smallest first; its errors are the shared ones
    make ara-install           # the standalone `ab -i`

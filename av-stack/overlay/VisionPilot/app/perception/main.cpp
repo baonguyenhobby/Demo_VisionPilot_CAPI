@@ -29,8 +29,14 @@
 #include <opencv2/core.hpp>
 
 #include <common/types.hpp>
-#include <common/utils.hpp>
+// Order matters. Upstream declares find_config() twice: common/utils.hpp
+// declares one with external linkage, config/vision_pilot_config.hpp
+// DEFINES a static one in the header. The two bodies are identical, but
+// extern-then-static is an error while static-then-extern is legal (the
+// later declaration inherits internal linkage). No upstream TU includes
+// both, so this only shows up here.
 #include <config/vision_pilot_config.hpp>
+#include <common/utils.hpp>
 #include <engine/onnx_engine.hpp>
 #include <logging/logger.hpp>
 #include <models/inference.hpp>

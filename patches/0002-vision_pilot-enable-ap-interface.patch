@@ -1,0 +1,44 @@
+diff --git a/VisionPilot/CMakeLists.txt b/VisionPilot/CMakeLists.txt
+index 4158d59..8cdb758 100644
+--- a/VisionPilot/CMakeLists.txt
++++ b/VisionPilot/CMakeLists.txt
+@@ -18,6 +18,12 @@ option(GPU "Enable GPU support" ON)
+ 
+ # ROS2 packages
+ option(ENABLE_ROS2_INTERFACE "Enable ROS2 support" OFF)
++option(ENABLE_AP_INTERFACE "Enable AUTOSAR Adaptive (CAPI) support" OFF)
++
++if(ENABLE_ROS2_INTERFACE AND ENABLE_AP_INTERFACE)
++    message(FATAL_ERROR
++        "ENABLE_ROS2_INTERFACE and ENABLE_AP_INTERFACE are mutually exclusive.")
++endif()
+ 
+ # Build testing code
+ option(BUILD_TESTING "Build the testing tree" OFF)
+@@ -64,6 +70,14 @@ add_subdirectory(modules/visualization)
+ 
+ add_subdirectory(modules/debug)
+ 
++if(ENABLE_AP_INTERFACE)
++    list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
++    include(AraApplication)
++    ara_find_capi()
++    ara_generated_common()
++    add_subdirectory(modules/middleware_interfaces/ap_interface)
++endif()
++
+ # Tests
+ if(BUILD_TESTING)
+     add_subdirectory(tests)
+diff --git a/VisionPilot/app/CMakeLists.txt b/VisionPilot/app/CMakeLists.txt
+index f5dc0cd..aa85aea 100644
+--- a/VisionPilot/app/CMakeLists.txt
++++ b/VisionPilot/app/CMakeLists.txt
+@@ -75,3 +75,7 @@ install(DIRECTORY "${CMAKE_SOURCE_DIR}/modules/models/weights/"
+ install(DIRECTORY "${CMAKE_SOURCE_DIR}/onnxruntime/"
+         DESTINATION "share/visionpilot/onnxruntime"
+ )
++
++if(ENABLE_AP_INTERFACE)
++    include(${CMAKE_CURRENT_LIST_DIR}/av_stack.cmake)
++endif()

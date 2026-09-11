@@ -88,6 +88,9 @@ add_ara_executable(
         SOURCES     planning/main.cpp
         LIBS        ap_runtime config logging common
                     planning               # Planner
+                    cppad_lib              # CppAD::local::temp_file. Upstream's
+                                           # planning module links only Ipopt, and
+                                           # CppAD is not header-only.
 )
 
 # --- Control ---------------------------------------------------------------

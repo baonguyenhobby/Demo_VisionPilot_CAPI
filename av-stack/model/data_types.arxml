@@ -282,12 +282,12 @@
                 <L-2 L="EN">Fixed 20-step tyre-angle sequence in radians. N matches LateralPlanner's horizon.</L-2>
               </DESC>
               <CATEGORY>ARRAY</CATEGORY>
+              <ARRAY-SIZE>20</ARRAY-SIZE>
               <NAMESPACES>
                 <SYMBOL-PROPS><SHORT-NAME>av</SHORT-NAME><SYMBOL>av</SYMBOL></SYMBOL-PROPS>
                 <SYMBOL-PROPS><SHORT-NAME>vp</SHORT-NAME><SYMBOL>vp</SYMBOL></SYMBOL-PROPS>
                 <SYMBOL-PROPS><SHORT-NAME>cm</SHORT-NAME><SYMBOL>cm</SYMBOL></SYMBOL-PROPS>
               </NAMESPACES>
-              <ARRAY-SIZE>20</ARRAY-SIZE>
               <TEMPLATE-ARGUMENTS>
                 <CPP-TEMPLATE-ARGUMENT>
                   <TEMPLATE-TYPE-REF DEST="STD-CPP-IMPLEMENTATION-DATA-TYPE">/AUTOSAR/StdTypes/float</TEMPLATE-TYPE-REF>

@@ -20,7 +20,7 @@
 #
 #   cmake -DENABLE_AP_INTERFACE=ON \
 #         -DARA_GEN_OUTPUT=/tmp/aragen-4aa \
-#         -DCMAKE_PREFIX_PATH="${SDK_INST_DIR}" ..
+#         -DCMAKE_PREFIX_PATH="${ARA_SYSROOT}/ara/framework/1.0.0;${ARA_SYSROOT}/usr" ..
 # ---------------------------------------------------------------------------
 
 # Where config.sh will look for built executables. This is the standalone
@@ -77,6 +77,31 @@ function(ara_find_capi)
             ara::core ara_com ara::log
             ara::exec::execution_client ara::phm::phm_client
             ara_com_nsomeip)
+
+    # Library search path for the SDK's own third-party libs (OpenSSL, fastdds,
+    # tinyxml2, ...), which live in <sysroot>/usr/lib. Some SDK package configs
+    # name them plainly -- `crypto` rather than an absolute path -- so without
+    # this the link fails with "cannot find -lcrypto" while the file sits right
+    # there. Derived from ara-core_DIR so it needs no environment variable.
+    set(_sysroot "$ENV{ARA_SYSROOT}")
+    if(NOT _sysroot)
+        get_filename_component(_sysroot "${ara-core_DIR}/../../../../../.." ABSOLUTE)
+    endif()
+    if(NOT EXISTS "${_sysroot}/usr/lib")
+        message(FATAL_ERROR
+            "Could not locate the CAPI sysroot (looked at '${_sysroot}'). "
+            "Set ARA_SYSROOT to <SDK_INST_DIR>/ara-sysroot.")
+    endif()
+    target_link_directories(ap_capi INTERFACE "${_sysroot}/usr/lib")
+
+    # RPATH for the same two directories. EM starts these binaries without your
+    # shell's LD_LIBRARY_PATH; a missing .so then shows up as EM reporting the
+    # process failed to start with no application log at all, because it never
+    # reached main().
+    target_link_options(ap_capi INTERFACE
+            "-Wl,-rpath,${_sysroot}/usr/lib"
+            "-Wl,-rpath,${_sysroot}/ara/framework/1.0.0/lib")
+
     target_compile_features(ap_capi INTERFACE cxx_std_17)
     add_library(ap::capi ALIAS ap_capi)
 endfunction()

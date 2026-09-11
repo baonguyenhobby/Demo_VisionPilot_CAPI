@@ -24,6 +24,42 @@ index 83bf8f5..b560d9b 100644
              objectify.ObjectifyElementClassLookup(tree_class=AUTOSARMapping))
  
          return xml_parser
+diff --git a/isoft/e2e/src/isoft/e2e/Platform_Types.h b/isoft/e2e/src/isoft/e2e/Platform_Types.h
+index c9c2941..c9756d0 100644
+--- a/isoft/e2e/src/isoft/e2e/Platform_Types.h
++++ b/isoft/e2e/src/isoft/e2e/Platform_Types.h
+@@ -80,16 +80,29 @@
+ #endif
+ 
+ /* for use with TRUE/FALSE        */
++/* Fixed-width 64-bit types.
++ *
++ * AUTOSAR requires uint64/sint64 to be 64-bit; it does not mandate a spelling.
++ * "unsigned long long" is 64-bit on every target we support, but it is a
++ * DIFFERENT TYPE from uint64_t on LP64, and OpenCV declares a global
++ * `typedef uint64_t uint64`. Two different types under one global name is a
++ * hard error in any translation unit that sees both -- which is every
++ * application that uses ara::com (it pulls in E2E) and OpenCV. Spelling these
++ * as the <stdint.h> types makes the two declarations identical by
++ * construction, on every platform, instead of by coincidence on some.
++ */
++#include <stdint.h>
++
+ typedef unsigned char boolean;
+ 
+ typedef unsigned char uint8;   /*           0 .. 255             */
+ typedef unsigned short uint16; /*           0 .. 65535           */
+ typedef unsigned int uint32;   /*           0 .. 4294967295      */
+-typedef unsigned long long uint64;
++typedef uint64_t uint64;
+ typedef signed char sint8;   /*        -128 .. +127            */
+ typedef signed short sint16; /*      -32768 .. +32767          */
+ typedef signed int sint32;   /* -2147483648 .. +2147483647     */
+-typedef signed long long sint64;
++typedef int64_t  sint64;
+ 
+ typedef unsigned long uint8_least;  /* At least 8 bit                 */
+ typedef unsigned long uint16_least; /* At least 16 bit                */
 diff --git a/log/CMakeLists.txt b/log/CMakeLists.txt
 index fc38e44..227350e 100644
 --- a/log/CMakeLists.txt

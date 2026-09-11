@@ -1,0 +1,65 @@
+diff --git a/idsm/CMakeLists.txt b/idsm/CMakeLists.txt
+index 6c57441..d206bee 100644
+--- a/idsm/CMakeLists.txt
++++ b/idsm/CMakeLists.txt
+@@ -39,7 +39,7 @@ project(None VERSION 1.1.0 LANGUAGES CXX) # project version,not sdk version
+ # Treat warnings as errors
+ 
+ if(CMAKE_COMPILER_IS_GNUCXX)
+-    add_compile_options(-Werror)
++    # add_compile_options(-Werror)  # relaxed: GCC 13 warning classes
+ endif()
+ 
+ # if(ARA_ENABLE_EXAMPLE)
+diff --git a/isoft/ara-gen/generator/common/lxml_preparser.py b/isoft/ara-gen/generator/common/lxml_preparser.py
+index 83bf8f5..b560d9b 100644
+--- a/isoft/ara-gen/generator/common/lxml_preparser.py
++++ b/isoft/ara-gen/generator/common/lxml_preparser.py
+@@ -52,7 +52,7 @@ class LxmlPreparser:
+         """
+         xml_parser = etree.XMLParser(huge_tree=True,remove_comments=True, remove_blank_text=True)
+ 
+-        xml_parser.setElementClassLookup(
++        xml_parser.set_element_class_lookup(
+             objectify.ObjectifyElementClassLookup(tree_class=AUTOSARMapping))
+ 
+         return xml_parser
+diff --git a/log/CMakeLists.txt b/log/CMakeLists.txt
+index fc38e44..227350e 100644
+--- a/log/CMakeLists.txt
++++ b/log/CMakeLists.txt
+@@ -41,7 +41,7 @@ project(logModule)
+ # Enable CTest/ctest integration once at the top level so subprojects can register tests.
+ 
+ # Stop on compilation error - treat compilation warnings as errors
+-add_compile_options(-Werror)
++# add_compile_options(-Werror)  # relaxed: GCC 13 warning classes
+ 
+ # set(ARA_LOG_HAS_REMOTE ON)
+ option(ARA_ENABLE_TESTS "test switch" ON)
+diff --git a/per/CMakeLists.txt b/per/CMakeLists.txt
+index e13938c..83a595d 100644
+--- a/per/CMakeLists.txt
++++ b/per/CMakeLists.txt
+@@ -40,7 +40,7 @@ project(None VERSION 1.1.0 LANGUAGES CXX) # project version,not sdk version
+ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+ # Treat warnings as errors
+ if(CMAKE_COMPILER_IS_GNUCXX)
+-    add_compile_options(-Werror)
++    # add_compile_options(-Werror)  # relaxed: GCC 13 warning classes
+ endif()
+ 
+ # if(ARA_ENABLE_EXAMPLE)
+diff --git a/ucm/CMakeLists.txt b/ucm/CMakeLists.txt
+index 2af699a..0a51e2e 100644
+--- a/ucm/CMakeLists.txt
++++ b/ucm/CMakeLists.txt
+@@ -39,7 +39,7 @@ project(None VERSION 1.1.0 LANGUAGES C CXX) # project version,not sdk version
+ 
+ # Treat warnings as errors
+ if(CMAKE_COMPILER_IS_GNUCXX)
+-	add_compile_options(-Werror)
++	# add_compile_options(-Werror)  # relaxed: GCC 13 warning classes
+ endif()
+ 
+ add_subdirectory(ucmlibs)

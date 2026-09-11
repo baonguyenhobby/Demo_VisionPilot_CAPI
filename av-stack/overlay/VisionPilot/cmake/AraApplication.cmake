@@ -74,8 +74,8 @@ function(ara_find_capi)
 
     add_library(ap_capi INTERFACE)
     target_link_libraries(ap_capi INTERFACE
-            ara::core ara::com ara::log
-            ara::exec::execution_client ara::phm::client
+            ara::core ara_com ara::log
+            ara::exec::execution_client ara::phm::phm_client
             ara_com_nsomeip)
     target_compile_features(ap_capi INTERFACE cxx_std_17)
     add_library(ap::capi ALIAS ap_capi)

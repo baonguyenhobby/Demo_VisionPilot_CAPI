@@ -1,0 +1,533 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Integration manifest for Machine1 == the four Adaptive Applications.
+
+  Everything machine-specific lives here: which process runs where, which
+  function-group state starts it, which SOME/IP instance backs each port, and
+  which IAM grants make the calls legal at run time.
+
+  FUNCTION GROUP MAPPING == the part worth reading
+
+              Off   Driving   Degraded   Safe
+    sensingd   ==      X         X
+    perceptiond ==     X         X
+    planningd  ==      X
+    controld   ==      X         X         X
+
+  On SetState(AvPilotFG.Degraded), EM stops planningd and leaves the other
+  three running. No C++ implements that; the table above is the whole
+  mechanism, and it is the one capability this port buys that ROS 2 cannot
+  express.
+
+  What Degraded means behaviourally: Control keeps the last trajectory and
+  follows the remainder of its 20-step steering horizon with decay, then
+  commands a safe stop when its staleness gate fires. Sensing and Perception
+  keep running so the logs and the overlay still show why. Safe stops
+  everything except Control, which holds the vehicle stationary.
+
+  STARTUP ORDERING is deliberately NOT expressed as an EM ExecutionDependency
+  of perceptiond on sensingd. The FrameDescriptor protocol already handles a
+  late or restarted producer == segmentInstanceId changes, the consumer
+  re-maps, valid gates the read == and that covers cases EM ordering does not,
+  such as sensingd being restarted while perceptiond keeps running. If you do
+  want the EM-level ordering as well, it belongs in perceptiond's
+  STATE-DEPENDENT-STARTUP-CONFIG below.
+
+  SCHEDULING: all four ask for SCHED_RR. EM downgrades this to SCHED_OTHER
+  with a warning when it lacks CAP_SYS_NICE, and starts the process anyway ==
+  the silent downgrade is the dangerous part, so check the boot log rather
+  than assuming the priorities below are in force.
+-->
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://autosar.org/schema/r4.0 AUTOSAR_00049.xsd">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>AvDeployment</SHORT-NAME>
+      <ELEMENTS>
+
+        <PROCESS-TO-MACHINE-MAPPING-SET>
+          <SHORT-NAME>mappingSet</SHORT-NAME>
+          <PROCESS-TO-MACHINE-MAPPINGS>
+            <PROCESS-TO-MACHINE-MAPPING>
+              <SHORT-NAME>SensingMapping</SHORT-NAME>
+              <MACHINE-REF DEST="MACHINE">/ISOFT/Development/Machine1</MACHINE-REF>
+              <PROCESS-REF DEST="PROCESS">/AvDeployment/sensing_process</PROCESS-REF>
+            </PROCESS-TO-MACHINE-MAPPING>
+            <PROCESS-TO-MACHINE-MAPPING>
+              <SHORT-NAME>PerceptionMapping</SHORT-NAME>
+              <MACHINE-REF DEST="MACHINE">/ISOFT/Development/Machine1</MACHINE-REF>
+              <PROCESS-REF DEST="PROCESS">/AvDeployment/perception_process</PROCESS-REF>
+            </PROCESS-TO-MACHINE-MAPPING>
+            <PROCESS-TO-MACHINE-MAPPING>
+              <SHORT-NAME>PlanningMapping</SHORT-NAME>
+              <MACHINE-REF DEST="MACHINE">/ISOFT/Development/Machine1</MACHINE-REF>
+              <PROCESS-REF DEST="PROCESS">/AvDeployment/planning_process</PROCESS-REF>
+            </PROCESS-TO-MACHINE-MAPPING>
+            <PROCESS-TO-MACHINE-MAPPING>
+              <SHORT-NAME>ControlMapping</SHORT-NAME>
+              <MACHINE-REF DEST="MACHINE">/ISOFT/Development/Machine1</MACHINE-REF>
+              <PROCESS-REF DEST="PROCESS">/AvDeployment/control_process</PROCESS-REF>
+            </PROCESS-TO-MACHINE-MAPPING>
+          </PROCESS-TO-MACHINE-MAPPINGS>
+        </PROCESS-TO-MACHINE-MAPPING-SET>
+
+        <!-- DLT channels, so all four applications show up separately in dlt-viewer. -->
+        <DLT-LOG-CHANNEL-TO-PROCESS-MAPPING>
+          <SHORT-NAME>dlt_sensing_default</SHORT-NAME>
+          <DLT-LOG-CHANNEL-REF DEST="DLT-LOG-CHANNEL">/ISOFT/Development/Machine1/sensing_log/default</DLT-LOG-CHANNEL-REF>
+          <PROCESS-REF DEST="PROCESS">/AvDeployment/sensing_process</PROCESS-REF>
+        </DLT-LOG-CHANNEL-TO-PROCESS-MAPPING>
+        <DLT-LOG-CHANNEL-TO-PROCESS-MAPPING>
+          <SHORT-NAME>dlt_sensing_com</SHORT-NAME>
+          <DLT-LOG-CHANNEL-REF DEST="DLT-LOG-CHANNEL">/ISOFT/Development/Machine1/sensing_log/com</DLT-LOG-CHANNEL-REF>
+          <PROCESS-REF DEST="PROCESS">/AvDeployment/sensing_process</PROCESS-REF>
+        </DLT-LOG-CHANNEL-TO-PROCESS-MAPPING>
+        <DLT-LOG-CHANNEL-TO-PROCESS-MAPPING>
+          <SHORT-NAME>dlt_sensing_vpa</SHORT-NAME>
+          <DLT-LOG-CHANNEL-REF DEST="DLT-LOG-CHANNEL">/ISOFT/Development/Machine1/sensing_log/vpa</DLT-LOG-CHANNEL-REF>
+          <PROCESS-REF DEST="PROCESS">/AvDeployment/sensing_process</PROCESS-REF>
+        </DLT-LOG-CHANNEL-TO-PROCESS-MAPPING>
+        <DLT-LOG-CHANNEL-TO-PROCESS-MAPPING>
+          <SHORT-NAME>dlt_perception_default</SHORT-NAME>
+          <DLT-LOG-CHANNEL-REF DEST="DLT-LOG-CHANNEL">/ISOFT/Development/Machine1/perception_log/default</DLT-LOG-CHANNEL-REF>
+          <PROCESS-REF DEST="PROCESS">/AvDeployment/perception_process</PROCESS-REF>
+        </DLT-LOG-CHANNEL-TO-PROCESS-MAPPING>
+        <DLT-LOG-CHANNEL-TO-PROCESS-MAPPING>
+          <SHORT-NAME>dlt_perception_com</SHORT-NAME>
+          <DLT-LOG-CHANNEL-REF DEST="DLT-LOG-CHANNEL">/ISOFT/Development/Machine1/perception_log/com</DLT-LOG-CHANNEL-REF>
+          <PROCESS-REF DEST="PROCESS">/AvDeployment/perception_process</PROCESS-REF>
+        </DLT-LOG-CHANNEL-TO-PROCESS-MAPPING>
+        <DLT-LOG-CHANNEL-TO-PROCESS-MAPPING>
+          <SHORT-NAME>dlt_perception_vpa</SHORT-NAME>
+          <DLT-LOG-CHANNEL-REF DEST="DLT-LOG-CHANNEL">/ISOFT/Development/Machine1/perception_log/vpa</DLT-LOG-CHANNEL-REF>
+          <PROCESS-REF DEST="PROCESS">/AvDeployment/perception_process</PROCESS-REF>
+        </DLT-LOG-CHANNEL-TO-PROCESS-MAPPING>
+        <DLT-LOG-CHANNEL-TO-PROCESS-MAPPING>
+          <SHORT-NAME>dlt_planning_default</SHORT-NAME>
+          <DLT-LOG-CHANNEL-REF DEST="DLT-LOG-CHANNEL">/ISOFT/Development/Machine1/planning_log/default</DLT-LOG-CHANNEL-REF>
+          <PROCESS-REF DEST="PROCESS">/AvDeployment/planning_process</PROCESS-REF>
+        </DLT-LOG-CHANNEL-TO-PROCESS-MAPPING>
+        <DLT-LOG-CHANNEL-TO-PROCESS-MAPPING>
+          <SHORT-NAME>dlt_planning_com</SHORT-NAME>
+          <DLT-LOG-CHANNEL-REF DEST="DLT-LOG-CHANNEL">/ISOFT/Development/Machine1/planning_log/com</DLT-LOG-CHANNEL-REF>
+          <PROCESS-REF DEST="PROCESS">/AvDeployment/planning_process</PROCESS-REF>
+        </DLT-LOG-CHANNEL-TO-PROCESS-MAPPING>
+        <DLT-LOG-CHANNEL-TO-PROCESS-MAPPING>
+          <SHORT-NAME>dlt_planning_vpa</SHORT-NAME>
+          <DLT-LOG-CHANNEL-REF DEST="DLT-LOG-CHANNEL">/ISOFT/Development/Machine1/planning_log/vpa</DLT-LOG-CHANNEL-REF>
+          <PROCESS-REF DEST="PROCESS">/AvDeployment/planning_process</PROCESS-REF>
+        </DLT-LOG-CHANNEL-TO-PROCESS-MAPPING>
+        <DLT-LOG-CHANNEL-TO-PROCESS-MAPPING>
+          <SHORT-NAME>dlt_control_default</SHORT-NAME>
+          <DLT-LOG-CHANNEL-REF DEST="DLT-LOG-CHANNEL">/ISOFT/Development/Machine1/control_log/default</DLT-LOG-CHANNEL-REF>
+          <PROCESS-REF DEST="PROCESS">/AvDeployment/control_process</PROCESS-REF>
+        </DLT-LOG-CHANNEL-TO-PROCESS-MAPPING>
+        <DLT-LOG-CHANNEL-TO-PROCESS-MAPPING>
+          <SHORT-NAME>dlt_control_com</SHORT-NAME>
+          <DLT-LOG-CHANNEL-REF DEST="DLT-LOG-CHANNEL">/ISOFT/Development/Machine1/control_log/com</DLT-LOG-CHANNEL-REF>
+          <PROCESS-REF DEST="PROCESS">/AvDeployment/control_process</PROCESS-REF>
+        </DLT-LOG-CHANNEL-TO-PROCESS-MAPPING>
+        <DLT-LOG-CHANNEL-TO-PROCESS-MAPPING>
+          <SHORT-NAME>dlt_control_vpa</SHORT-NAME>
+          <DLT-LOG-CHANNEL-REF DEST="DLT-LOG-CHANNEL">/ISOFT/Development/Machine1/control_log/vpa</DLT-LOG-CHANNEL-REF>
+          <PROCESS-REF DEST="PROCESS">/AvDeployment/control_process</PROCESS-REF>
+        </DLT-LOG-CHANNEL-TO-PROCESS-MAPPING>
+
+        <!-- Provided instances carry the UDP port; required instances only need
+             the connector they discover on. -->
+        <SOMEIP-SERVICE-INSTANCE-TO-MACHINE-MAPPING>
+          <SHORT-NAME>CameraFrame_Provided_toMachine</SHORT-NAME>
+          <COMMUNICATION-CONNECTOR-REF DEST="ETHERNET-COMMUNICATION-CONNECTOR">/ISOFT/Development/MachineDesign1/CommunicationConnector1</COMMUNICATION-CONNECTOR-REF>
+          <SERVICE-INSTANCE-REFS>
+            <SERVICE-INSTANCE-REF DEST="PROVIDED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/ProvidedInstance_CameraFrame</SERVICE-INSTANCE-REF>
+          </SERVICE-INSTANCE-REFS>
+          <UDP-PORT>30503</UDP-PORT>
+        </SOMEIP-SERVICE-INSTANCE-TO-MACHINE-MAPPING>
+        <SOMEIP-SERVICE-INSTANCE-TO-MACHINE-MAPPING>
+          <SHORT-NAME>CameraFrame_Required_toMachine</SHORT-NAME>
+          <COMMUNICATION-CONNECTOR-REF DEST="ETHERNET-COMMUNICATION-CONNECTOR">/ISOFT/Development/MachineDesign1/CommunicationConnector1</COMMUNICATION-CONNECTOR-REF>
+          <SERVICE-INSTANCE-REFS>
+            <SERVICE-INSTANCE-REF DEST="REQUIRED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/RequiredInstance_CameraFrame</SERVICE-INSTANCE-REF>
+          </SERVICE-INSTANCE-REFS>
+        </SOMEIP-SERVICE-INSTANCE-TO-MACHINE-MAPPING>
+        <SOMEIP-SERVICE-INSTANCE-TO-MACHINE-MAPPING>
+          <SHORT-NAME>DrivingState_Provided_toMachine</SHORT-NAME>
+          <COMMUNICATION-CONNECTOR-REF DEST="ETHERNET-COMMUNICATION-CONNECTOR">/ISOFT/Development/MachineDesign1/CommunicationConnector1</COMMUNICATION-CONNECTOR-REF>
+          <SERVICE-INSTANCE-REFS>
+            <SERVICE-INSTANCE-REF DEST="PROVIDED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/ProvidedInstance_DrivingState</SERVICE-INSTANCE-REF>
+          </SERVICE-INSTANCE-REFS>
+          <UDP-PORT>30504</UDP-PORT>
+        </SOMEIP-SERVICE-INSTANCE-TO-MACHINE-MAPPING>
+        <SOMEIP-SERVICE-INSTANCE-TO-MACHINE-MAPPING>
+          <SHORT-NAME>DrivingState_Required_toMachine</SHORT-NAME>
+          <COMMUNICATION-CONNECTOR-REF DEST="ETHERNET-COMMUNICATION-CONNECTOR">/ISOFT/Development/MachineDesign1/CommunicationConnector1</COMMUNICATION-CONNECTOR-REF>
+          <SERVICE-INSTANCE-REFS>
+            <SERVICE-INSTANCE-REF DEST="REQUIRED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/RequiredInstance_DrivingState</SERVICE-INSTANCE-REF>
+          </SERVICE-INSTANCE-REFS>
+        </SOMEIP-SERVICE-INSTANCE-TO-MACHINE-MAPPING>
+        <SOMEIP-SERVICE-INSTANCE-TO-MACHINE-MAPPING>
+          <SHORT-NAME>Trajectory_Provided_toMachine</SHORT-NAME>
+          <COMMUNICATION-CONNECTOR-REF DEST="ETHERNET-COMMUNICATION-CONNECTOR">/ISOFT/Development/MachineDesign1/CommunicationConnector1</COMMUNICATION-CONNECTOR-REF>
+          <SERVICE-INSTANCE-REFS>
+            <SERVICE-INSTANCE-REF DEST="PROVIDED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/ProvidedInstance_Trajectory</SERVICE-INSTANCE-REF>
+          </SERVICE-INSTANCE-REFS>
+          <UDP-PORT>30505</UDP-PORT>
+        </SOMEIP-SERVICE-INSTANCE-TO-MACHINE-MAPPING>
+        <SOMEIP-SERVICE-INSTANCE-TO-MACHINE-MAPPING>
+          <SHORT-NAME>Trajectory_Required_toMachine</SHORT-NAME>
+          <COMMUNICATION-CONNECTOR-REF DEST="ETHERNET-COMMUNICATION-CONNECTOR">/ISOFT/Development/MachineDesign1/CommunicationConnector1</COMMUNICATION-CONNECTOR-REF>
+          <SERVICE-INSTANCE-REFS>
+            <SERVICE-INSTANCE-REF DEST="REQUIRED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/RequiredInstance_Trajectory</SERVICE-INSTANCE-REF>
+          </SERVICE-INSTANCE-REFS>
+        </SOMEIP-SERVICE-INSTANCE-TO-MACHINE-MAPPING>
+        <SOMEIP-SERVICE-INSTANCE-TO-MACHINE-MAPPING>
+          <SHORT-NAME>Trajectory_Viz_Required_toMachine</SHORT-NAME>
+          <COMMUNICATION-CONNECTOR-REF DEST="ETHERNET-COMMUNICATION-CONNECTOR">/ISOFT/Development/MachineDesign1/CommunicationConnector1</COMMUNICATION-CONNECTOR-REF>
+          <SERVICE-INSTANCE-REFS>
+            <SERVICE-INSTANCE-REF DEST="REQUIRED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/RequiredInstance_Trajectory_Viz</SERVICE-INSTANCE-REF>
+          </SERVICE-INSTANCE-REFS>
+        </SOMEIP-SERVICE-INSTANCE-TO-MACHINE-MAPPING>
+        <SOMEIP-SERVICE-INSTANCE-TO-MACHINE-MAPPING>
+          <SHORT-NAME>VehicleStatus_Provided_toMachine</SHORT-NAME>
+          <COMMUNICATION-CONNECTOR-REF DEST="ETHERNET-COMMUNICATION-CONNECTOR">/ISOFT/Development/MachineDesign1/CommunicationConnector1</COMMUNICATION-CONNECTOR-REF>
+          <SERVICE-INSTANCE-REFS>
+            <SERVICE-INSTANCE-REF DEST="PROVIDED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/ProvidedInstance_VehicleStatus</SERVICE-INSTANCE-REF>
+          </SERVICE-INSTANCE-REFS>
+          <UDP-PORT>30501</UDP-PORT>
+        </SOMEIP-SERVICE-INSTANCE-TO-MACHINE-MAPPING>
+        <SOMEIP-SERVICE-INSTANCE-TO-MACHINE-MAPPING>
+          <SHORT-NAME>VehicleStatus_Required_toMachine</SHORT-NAME>
+          <COMMUNICATION-CONNECTOR-REF DEST="ETHERNET-COMMUNICATION-CONNECTOR">/ISOFT/Development/MachineDesign1/CommunicationConnector1</COMMUNICATION-CONNECTOR-REF>
+          <SERVICE-INSTANCE-REFS>
+            <SERVICE-INSTANCE-REF DEST="REQUIRED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/RequiredInstance_VehicleStatus</SERVICE-INSTANCE-REF>
+          </SERVICE-INSTANCE-REFS>
+        </SOMEIP-SERVICE-INSTANCE-TO-MACHINE-MAPPING>
+
+        <!-- Sensing: Driving + Degraded -->
+        <PROCESS>
+          <SHORT-NAME>sensing_process</SHORT-NAME>
+          <DESIGN-REF DEST="PROCESS-DESIGN">/SensingApp/SensingDesign</DESIGN-REF>
+          <EXECUTABLE-REF DEST="EXECUTABLE">/SensingApp/exe/sensingd</EXECUTABLE-REF>
+          <PROCESS-STATE-MACHINE>
+            <SHORT-NAME>processStateMachine</SHORT-NAME>
+            <TYPE-TREF DEST="MODE-DECLARATION-GROUP">/ISOFT/ProcessModes/ProcessStateMachine</TYPE-TREF>
+          </PROCESS-STATE-MACHINE>
+          <STATE-DEPENDENT-STARTUP-CONFIGS>
+            <STATE-DEPENDENT-STARTUP-CONFIG>
+              <FUNCTION-GROUP-STATE-IREFS>
+                <FUNCTION-GROUP-STATE-IREF>
+                  <CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF DEST="MODE-DECLARATION-GROUP-PROTOTYPE">/FunctionGroups/AvPilot/FunctionGroupsSet/AvPilotFG</CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF>
+                  <TARGET-MODE-DECLARATION-REF DEST="MODE-DECLARATION">/FunctionGroups/AvPilot/AvPilotFG/Driving</TARGET-MODE-DECLARATION-REF>
+                </FUNCTION-GROUP-STATE-IREF>
+                <FUNCTION-GROUP-STATE-IREF>
+                  <CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF DEST="MODE-DECLARATION-GROUP-PROTOTYPE">/FunctionGroups/AvPilot/FunctionGroupsSet/AvPilotFG</CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF>
+                  <TARGET-MODE-DECLARATION-REF DEST="MODE-DECLARATION">/FunctionGroups/AvPilot/AvPilotFG/Degraded</TARGET-MODE-DECLARATION-REF>
+                </FUNCTION-GROUP-STATE-IREF>
+              </FUNCTION-GROUP-STATE-IREFS>
+              <RESOURCE-GROUP-REF DEST="RESOURCE-GROUP">/ISOFT/Development/Machine1/OS/DefaultResourceGroup</RESOURCE-GROUP-REF>
+              <STARTUP-CONFIG-REF DEST="STARTUP-CONFIG">/AvDeployment/startup_set/sensing_config</STARTUP-CONFIG-REF>
+            </STATE-DEPENDENT-STARTUP-CONFIG>
+          </STATE-DEPENDENT-STARTUP-CONFIGS>
+        </PROCESS>
+
+        <!-- Perception: Driving + Degraded -->
+        <PROCESS>
+          <SHORT-NAME>perception_process</SHORT-NAME>
+          <DESIGN-REF DEST="PROCESS-DESIGN">/PerceptionApp/PerceptionDesign</DESIGN-REF>
+          <EXECUTABLE-REF DEST="EXECUTABLE">/PerceptionApp/exe/perceptiond</EXECUTABLE-REF>
+          <PROCESS-STATE-MACHINE>
+            <SHORT-NAME>processStateMachine</SHORT-NAME>
+            <TYPE-TREF DEST="MODE-DECLARATION-GROUP">/ISOFT/ProcessModes/ProcessStateMachine</TYPE-TREF>
+          </PROCESS-STATE-MACHINE>
+          <STATE-DEPENDENT-STARTUP-CONFIGS>
+            <STATE-DEPENDENT-STARTUP-CONFIG>
+              <FUNCTION-GROUP-STATE-IREFS>
+                <FUNCTION-GROUP-STATE-IREF>
+                  <CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF DEST="MODE-DECLARATION-GROUP-PROTOTYPE">/FunctionGroups/AvPilot/FunctionGroupsSet/AvPilotFG</CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF>
+                  <TARGET-MODE-DECLARATION-REF DEST="MODE-DECLARATION">/FunctionGroups/AvPilot/AvPilotFG/Driving</TARGET-MODE-DECLARATION-REF>
+                </FUNCTION-GROUP-STATE-IREF>
+                <FUNCTION-GROUP-STATE-IREF>
+                  <CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF DEST="MODE-DECLARATION-GROUP-PROTOTYPE">/FunctionGroups/AvPilot/FunctionGroupsSet/AvPilotFG</CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF>
+                  <TARGET-MODE-DECLARATION-REF DEST="MODE-DECLARATION">/FunctionGroups/AvPilot/AvPilotFG/Degraded</TARGET-MODE-DECLARATION-REF>
+                </FUNCTION-GROUP-STATE-IREF>
+              </FUNCTION-GROUP-STATE-IREFS>
+              <RESOURCE-GROUP-REF DEST="RESOURCE-GROUP">/ISOFT/Development/Machine1/OS/DefaultResourceGroup</RESOURCE-GROUP-REF>
+              <STARTUP-CONFIG-REF DEST="STARTUP-CONFIG">/AvDeployment/startup_set/perception_config</STARTUP-CONFIG-REF>
+            </STATE-DEPENDENT-STARTUP-CONFIG>
+          </STATE-DEPENDENT-STARTUP-CONFIGS>
+        </PROCESS>
+
+        <!-- Planning: Driving -->
+        <PROCESS>
+          <SHORT-NAME>planning_process</SHORT-NAME>
+          <DESIGN-REF DEST="PROCESS-DESIGN">/PlanningApp/PlanningDesign</DESIGN-REF>
+          <EXECUTABLE-REF DEST="EXECUTABLE">/PlanningApp/exe/planningd</EXECUTABLE-REF>
+          <PROCESS-STATE-MACHINE>
+            <SHORT-NAME>processStateMachine</SHORT-NAME>
+            <TYPE-TREF DEST="MODE-DECLARATION-GROUP">/ISOFT/ProcessModes/ProcessStateMachine</TYPE-TREF>
+          </PROCESS-STATE-MACHINE>
+          <STATE-DEPENDENT-STARTUP-CONFIGS>
+            <STATE-DEPENDENT-STARTUP-CONFIG>
+              <FUNCTION-GROUP-STATE-IREFS>
+                <FUNCTION-GROUP-STATE-IREF>
+                  <CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF DEST="MODE-DECLARATION-GROUP-PROTOTYPE">/FunctionGroups/AvPilot/FunctionGroupsSet/AvPilotFG</CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF>
+                  <TARGET-MODE-DECLARATION-REF DEST="MODE-DECLARATION">/FunctionGroups/AvPilot/AvPilotFG/Driving</TARGET-MODE-DECLARATION-REF>
+                </FUNCTION-GROUP-STATE-IREF>
+              </FUNCTION-GROUP-STATE-IREFS>
+              <RESOURCE-GROUP-REF DEST="RESOURCE-GROUP">/ISOFT/Development/Machine1/OS/DefaultResourceGroup</RESOURCE-GROUP-REF>
+              <STARTUP-CONFIG-REF DEST="STARTUP-CONFIG">/AvDeployment/startup_set/planning_config</STARTUP-CONFIG-REF>
+            </STATE-DEPENDENT-STARTUP-CONFIG>
+          </STATE-DEPENDENT-STARTUP-CONFIGS>
+        </PROCESS>
+
+        <!-- Control: Driving + Degraded + Safe -->
+        <PROCESS>
+          <SHORT-NAME>control_process</SHORT-NAME>
+          <DESIGN-REF DEST="PROCESS-DESIGN">/ControlApp/ControlDesign</DESIGN-REF>
+          <EXECUTABLE-REF DEST="EXECUTABLE">/ControlApp/exe/controld</EXECUTABLE-REF>
+          <PROCESS-STATE-MACHINE>
+            <SHORT-NAME>processStateMachine</SHORT-NAME>
+            <TYPE-TREF DEST="MODE-DECLARATION-GROUP">/ISOFT/ProcessModes/ProcessStateMachine</TYPE-TREF>
+          </PROCESS-STATE-MACHINE>
+          <STATE-DEPENDENT-STARTUP-CONFIGS>
+            <STATE-DEPENDENT-STARTUP-CONFIG>
+              <FUNCTION-GROUP-STATE-IREFS>
+                <FUNCTION-GROUP-STATE-IREF>
+                  <CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF DEST="MODE-DECLARATION-GROUP-PROTOTYPE">/FunctionGroups/AvPilot/FunctionGroupsSet/AvPilotFG</CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF>
+                  <TARGET-MODE-DECLARATION-REF DEST="MODE-DECLARATION">/FunctionGroups/AvPilot/AvPilotFG/Driving</TARGET-MODE-DECLARATION-REF>
+                </FUNCTION-GROUP-STATE-IREF>
+                <FUNCTION-GROUP-STATE-IREF>
+                  <CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF DEST="MODE-DECLARATION-GROUP-PROTOTYPE">/FunctionGroups/AvPilot/FunctionGroupsSet/AvPilotFG</CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF>
+                  <TARGET-MODE-DECLARATION-REF DEST="MODE-DECLARATION">/FunctionGroups/AvPilot/AvPilotFG/Degraded</TARGET-MODE-DECLARATION-REF>
+                </FUNCTION-GROUP-STATE-IREF>
+                <FUNCTION-GROUP-STATE-IREF>
+                  <CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF DEST="MODE-DECLARATION-GROUP-PROTOTYPE">/FunctionGroups/AvPilot/FunctionGroupsSet/AvPilotFG</CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF>
+                  <TARGET-MODE-DECLARATION-REF DEST="MODE-DECLARATION">/FunctionGroups/AvPilot/AvPilotFG/Safe</TARGET-MODE-DECLARATION-REF>
+                </FUNCTION-GROUP-STATE-IREF>
+              </FUNCTION-GROUP-STATE-IREFS>
+              <RESOURCE-GROUP-REF DEST="RESOURCE-GROUP">/ISOFT/Development/Machine1/OS/DefaultResourceGroup</RESOURCE-GROUP-REF>
+              <STARTUP-CONFIG-REF DEST="STARTUP-CONFIG">/AvDeployment/startup_set/control_config</STARTUP-CONFIG-REF>
+            </STATE-DEPENDENT-STARTUP-CONFIG>
+          </STATE-DEPENDENT-STARTUP-CONFIGS>
+        </PROCESS>
+
+        <STARTUP-CONFIG-SET>
+          <SHORT-NAME>startup_set</SHORT-NAME>
+          <STARTUP-CONFIGS>
+            <STARTUP-CONFIG>
+              <SHORT-NAME>control_config</SHORT-NAME>
+              <!-- Highest: owns the actuator and is the last gate. It must never be starved by the perception chain it is protecting. -->
+              <SCHEDULING-POLICY>RR</SCHEDULING-POLICY>
+              <SCHEDULING-PRIORITY>22</SCHEDULING-PRIORITY>
+              <TERMINATION-BEHAVIOR>PROCESS-IS-NOT-SELF-TERMINATING</TERMINATION-BEHAVIOR>
+            </STARTUP-CONFIG>
+            <STARTUP-CONFIG>
+              <SHORT-NAME>sensing_config</SHORT-NAME>
+              <!-- Above perception: a dropped capture cannot be recovered downstream, and the ring writer must stay ahead of the reader. -->
+              <SCHEDULING-POLICY>RR</SCHEDULING-POLICY>
+              <SCHEDULING-PRIORITY>18</SCHEDULING-PRIORITY>
+              <TERMINATION-BEHAVIOR>PROCESS-IS-NOT-SELF-TERMINATING</TERMINATION-BEHAVIOR>
+            </STARTUP-CONFIG>
+            <STARTUP-CONFIG>
+              <SHORT-NAME>planning_config</SHORT-NAME>
+              <!-- Above perception: small, bounded work on a short deadline. Below control. -->
+              <SCHEDULING-POLICY>RR</SCHEDULING-POLICY>
+              <SCHEDULING-PRIORITY>14</SCHEDULING-PRIORITY>
+              <TERMINATION-BEHAVIOR>PROCESS-IS-NOT-SELF-TERMINATING</TERMINATION-BEHAVIOR>
+            </STARTUP-CONFIG>
+            <STARTUP-CONFIG>
+              <SHORT-NAME>perception_config</SHORT-NAME>
+              <!-- Lowest of the four: the long GPU-bound stage, and the one that can absorb a late cycle by dropping a frame. -->
+              <SCHEDULING-POLICY>RR</SCHEDULING-POLICY>
+              <SCHEDULING-PRIORITY>12</SCHEDULING-PRIORITY>
+              <TERMINATION-BEHAVIOR>PROCESS-IS-NOT-SELF-TERMINATING</TERMINATION-BEHAVIOR>
+            </STARTUP-CONFIG>
+          </STARTUP-CONFIGS>
+        </STARTUP-CONFIG-SET>
+
+        <!-- Resolves each InstanceSpecifier the C++ passes to ara::com. -->
+        <SERVICE-INSTANCE-TO-PORT-PROTOTYPE-MAPPING UUID="">
+          <SHORT-NAME>Sensing_CameraFrame_toPort</SHORT-NAME>
+          <PORT-PROTOTYPE-IREF>
+            <CONTEXT-ROOT-SW-COMPONENT-PROTOTYPE-REF DEST="ROOT-SW-COMPONENT-PROTOTYPE">/SensingApp/exe/sensingd/sn_root</CONTEXT-ROOT-SW-COMPONENT-PROTOTYPE-REF>
+            <TARGET-PORT-PROTOTYPE-REF DEST="P-PORT-PROTOTYPE">/SensingApp/swc/Sensing/PPort_CameraFrame</TARGET-PORT-PROTOTYPE-REF>
+          </PORT-PROTOTYPE-IREF>
+          <PROCESS-DESIGN-REF DEST="PROCESS-DESIGN">/SensingApp/SensingDesign</PROCESS-DESIGN-REF>
+          <PROCESS-REF DEST="PROCESS">/AvDeployment/sensing_process</PROCESS-REF>
+          <SERVICE-INSTANCE-REF DEST="PROVIDED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/ProvidedInstance_CameraFrame</SERVICE-INSTANCE-REF>
+        </SERVICE-INSTANCE-TO-PORT-PROTOTYPE-MAPPING>
+        <SERVICE-INSTANCE-TO-PORT-PROTOTYPE-MAPPING UUID="">
+          <SHORT-NAME>Perception_CameraFrame_toPort</SHORT-NAME>
+          <PORT-PROTOTYPE-IREF>
+            <CONTEXT-ROOT-SW-COMPONENT-PROTOTYPE-REF DEST="ROOT-SW-COMPONENT-PROTOTYPE">/PerceptionApp/exe/perceptiond/pc_root</CONTEXT-ROOT-SW-COMPONENT-PROTOTYPE-REF>
+            <TARGET-PORT-PROTOTYPE-REF DEST="R-PORT-PROTOTYPE">/PerceptionApp/swc/Perception/RPort_CameraFrame</TARGET-PORT-PROTOTYPE-REF>
+          </PORT-PROTOTYPE-IREF>
+          <PROCESS-DESIGN-REF DEST="PROCESS-DESIGN">/PerceptionApp/PerceptionDesign</PROCESS-DESIGN-REF>
+          <PROCESS-REF DEST="PROCESS">/AvDeployment/perception_process</PROCESS-REF>
+          <SERVICE-INSTANCE-REF DEST="REQUIRED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/RequiredInstance_CameraFrame</SERVICE-INSTANCE-REF>
+        </SERVICE-INSTANCE-TO-PORT-PROTOTYPE-MAPPING>
+        <SERVICE-INSTANCE-TO-PORT-PROTOTYPE-MAPPING UUID="">
+          <SHORT-NAME>Perception_DrivingState_toPort</SHORT-NAME>
+          <PORT-PROTOTYPE-IREF>
+            <CONTEXT-ROOT-SW-COMPONENT-PROTOTYPE-REF DEST="ROOT-SW-COMPONENT-PROTOTYPE">/PerceptionApp/exe/perceptiond/pc_root</CONTEXT-ROOT-SW-COMPONENT-PROTOTYPE-REF>
+            <TARGET-PORT-PROTOTYPE-REF DEST="P-PORT-PROTOTYPE">/PerceptionApp/swc/Perception/PPort_DrivingState</TARGET-PORT-PROTOTYPE-REF>
+          </PORT-PROTOTYPE-IREF>
+          <PROCESS-DESIGN-REF DEST="PROCESS-DESIGN">/PerceptionApp/PerceptionDesign</PROCESS-DESIGN-REF>
+          <PROCESS-REF DEST="PROCESS">/AvDeployment/perception_process</PROCESS-REF>
+          <SERVICE-INSTANCE-REF DEST="PROVIDED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/ProvidedInstance_DrivingState</SERVICE-INSTANCE-REF>
+        </SERVICE-INSTANCE-TO-PORT-PROTOTYPE-MAPPING>
+        <SERVICE-INSTANCE-TO-PORT-PROTOTYPE-MAPPING UUID="">
+          <SHORT-NAME>Planning_DrivingState_toPort</SHORT-NAME>
+          <PORT-PROTOTYPE-IREF>
+            <CONTEXT-ROOT-SW-COMPONENT-PROTOTYPE-REF DEST="ROOT-SW-COMPONENT-PROTOTYPE">/PlanningApp/exe/planningd/pl_root</CONTEXT-ROOT-SW-COMPONENT-PROTOTYPE-REF>
+            <TARGET-PORT-PROTOTYPE-REF DEST="R-PORT-PROTOTYPE">/PlanningApp/swc/Planning/RPort_DrivingState</TARGET-PORT-PROTOTYPE-REF>
+          </PORT-PROTOTYPE-IREF>
+          <PROCESS-DESIGN-REF DEST="PROCESS-DESIGN">/PlanningApp/PlanningDesign</PROCESS-DESIGN-REF>
+          <PROCESS-REF DEST="PROCESS">/AvDeployment/planning_process</PROCESS-REF>
+          <SERVICE-INSTANCE-REF DEST="REQUIRED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/RequiredInstance_DrivingState</SERVICE-INSTANCE-REF>
+        </SERVICE-INSTANCE-TO-PORT-PROTOTYPE-MAPPING>
+        <SERVICE-INSTANCE-TO-PORT-PROTOTYPE-MAPPING UUID="">
+          <SHORT-NAME>Planning_Trajectory_toPort</SHORT-NAME>
+          <PORT-PROTOTYPE-IREF>
+            <CONTEXT-ROOT-SW-COMPONENT-PROTOTYPE-REF DEST="ROOT-SW-COMPONENT-PROTOTYPE">/PlanningApp/exe/planningd/pl_root</CONTEXT-ROOT-SW-COMPONENT-PROTOTYPE-REF>
+            <TARGET-PORT-PROTOTYPE-REF DEST="P-PORT-PROTOTYPE">/PlanningApp/swc/Planning/PPort_Trajectory</TARGET-PORT-PROTOTYPE-REF>
+          </PORT-PROTOTYPE-IREF>
+          <PROCESS-DESIGN-REF DEST="PROCESS-DESIGN">/PlanningApp/PlanningDesign</PROCESS-DESIGN-REF>
+          <PROCESS-REF DEST="PROCESS">/AvDeployment/planning_process</PROCESS-REF>
+          <SERVICE-INSTANCE-REF DEST="PROVIDED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/ProvidedInstance_Trajectory</SERVICE-INSTANCE-REF>
+        </SERVICE-INSTANCE-TO-PORT-PROTOTYPE-MAPPING>
+        <SERVICE-INSTANCE-TO-PORT-PROTOTYPE-MAPPING UUID="">
+          <SHORT-NAME>Control_Trajectory_toPort</SHORT-NAME>
+          <PORT-PROTOTYPE-IREF>
+            <CONTEXT-ROOT-SW-COMPONENT-PROTOTYPE-REF DEST="ROOT-SW-COMPONENT-PROTOTYPE">/ControlApp/exe/controld/ct_root</CONTEXT-ROOT-SW-COMPONENT-PROTOTYPE-REF>
+            <TARGET-PORT-PROTOTYPE-REF DEST="R-PORT-PROTOTYPE">/ControlApp/swc/Control/RPort_Trajectory</TARGET-PORT-PROTOTYPE-REF>
+          </PORT-PROTOTYPE-IREF>
+          <PROCESS-DESIGN-REF DEST="PROCESS-DESIGN">/ControlApp/ControlDesign</PROCESS-DESIGN-REF>
+          <PROCESS-REF DEST="PROCESS">/AvDeployment/control_process</PROCESS-REF>
+          <SERVICE-INSTANCE-REF DEST="REQUIRED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/RequiredInstance_Trajectory</SERVICE-INSTANCE-REF>
+        </SERVICE-INSTANCE-TO-PORT-PROTOTYPE-MAPPING>
+        <SERVICE-INSTANCE-TO-PORT-PROTOTYPE-MAPPING UUID="">
+          <SHORT-NAME>Perception_Trajectory_Viz_toPort</SHORT-NAME>
+          <PORT-PROTOTYPE-IREF>
+            <CONTEXT-ROOT-SW-COMPONENT-PROTOTYPE-REF DEST="ROOT-SW-COMPONENT-PROTOTYPE">/PerceptionApp/exe/perceptiond/pc_root</CONTEXT-ROOT-SW-COMPONENT-PROTOTYPE-REF>
+            <TARGET-PORT-PROTOTYPE-REF DEST="R-PORT-PROTOTYPE">/PerceptionApp/swc/Perception/RPort_Trajectory</TARGET-PORT-PROTOTYPE-REF>
+          </PORT-PROTOTYPE-IREF>
+          <PROCESS-DESIGN-REF DEST="PROCESS-DESIGN">/PerceptionApp/PerceptionDesign</PROCESS-DESIGN-REF>
+          <PROCESS-REF DEST="PROCESS">/AvDeployment/perception_process</PROCESS-REF>
+          <SERVICE-INSTANCE-REF DEST="REQUIRED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/RequiredInstance_Trajectory_Viz</SERVICE-INSTANCE-REF>
+        </SERVICE-INSTANCE-TO-PORT-PROTOTYPE-MAPPING>
+        <SERVICE-INSTANCE-TO-PORT-PROTOTYPE-MAPPING UUID="">
+          <SHORT-NAME>Control_VehicleStatus_toPort</SHORT-NAME>
+          <PORT-PROTOTYPE-IREF>
+            <CONTEXT-ROOT-SW-COMPONENT-PROTOTYPE-REF DEST="ROOT-SW-COMPONENT-PROTOTYPE">/ControlApp/exe/controld/ct_root</CONTEXT-ROOT-SW-COMPONENT-PROTOTYPE-REF>
+            <TARGET-PORT-PROTOTYPE-REF DEST="P-PORT-PROTOTYPE">/ControlApp/swc/Control/PPort_VehicleStatus</TARGET-PORT-PROTOTYPE-REF>
+          </PORT-PROTOTYPE-IREF>
+          <PROCESS-DESIGN-REF DEST="PROCESS-DESIGN">/ControlApp/ControlDesign</PROCESS-DESIGN-REF>
+          <PROCESS-REF DEST="PROCESS">/AvDeployment/control_process</PROCESS-REF>
+          <SERVICE-INSTANCE-REF DEST="PROVIDED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/ProvidedInstance_VehicleStatus</SERVICE-INSTANCE-REF>
+        </SERVICE-INSTANCE-TO-PORT-PROTOTYPE-MAPPING>
+        <SERVICE-INSTANCE-TO-PORT-PROTOTYPE-MAPPING UUID="">
+          <SHORT-NAME>Planning_VehicleStatus_toPort</SHORT-NAME>
+          <PORT-PROTOTYPE-IREF>
+            <CONTEXT-ROOT-SW-COMPONENT-PROTOTYPE-REF DEST="ROOT-SW-COMPONENT-PROTOTYPE">/PlanningApp/exe/planningd/pl_root</CONTEXT-ROOT-SW-COMPONENT-PROTOTYPE-REF>
+            <TARGET-PORT-PROTOTYPE-REF DEST="R-PORT-PROTOTYPE">/PlanningApp/swc/Planning/RPort_VehicleStatus</TARGET-PORT-PROTOTYPE-REF>
+          </PORT-PROTOTYPE-IREF>
+          <PROCESS-DESIGN-REF DEST="PROCESS-DESIGN">/PlanningApp/PlanningDesign</PROCESS-DESIGN-REF>
+          <PROCESS-REF DEST="PROCESS">/AvDeployment/planning_process</PROCESS-REF>
+          <SERVICE-INSTANCE-REF DEST="REQUIRED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/RequiredInstance_VehicleStatus</SERVICE-INSTANCE-REF>
+        </SERVICE-INSTANCE-TO-PORT-PROTOTYPE-MAPPING>
+
+      </ELEMENTS>
+    </AR-PACKAGE>
+
+    <!-- IAM grants. Without these the calls are refused at run time even though
+         the model resolves: offering, finding and sending are each authorised
+         separately. -->
+    <AR-PACKAGE>
+      <SHORT-NAME>AvGrants</SHORT-NAME>
+      <ELEMENTS>
+        <COM-OFFER-SERVICE-GRANT UUID="">
+          <SHORT-NAME>offer_cameraframe</SHORT-NAME>
+          <SERVICE-INSTANCE-REF DEST="PROVIDED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/ProvidedInstance_CameraFrame</SERVICE-INSTANCE-REF>
+        </COM-OFFER-SERVICE-GRANT>
+        <COM-EVENT-GRANT UUID="">
+          <SHORT-NAME>send_cameraframe_event</SHORT-NAME>
+          <SERVICE-INSTANCE-REF DEST="PROVIDED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/ProvidedInstance_CameraFrame</SERVICE-INSTANCE-REF>
+          <SERVICE-DEPLOYMENT-REF DEST="SOMEIP-EVENT-DEPLOYMENT">/SomeipDeployments/CameraFrameService/FrameEvent</SERVICE-DEPLOYMENT-REF>
+        </COM-EVENT-GRANT>
+        <COM-FIND-SERVICE-GRANT UUID="">
+          <SHORT-NAME>find_cameraframe</SHORT-NAME>
+          <SERVICE-INSTANCE-REF DEST="REQUIRED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/RequiredInstance_CameraFrame</SERVICE-INSTANCE-REF>
+        </COM-FIND-SERVICE-GRANT>
+        <COM-EVENT-GRANT UUID="">
+          <SHORT-NAME>receive_cameraframe_event</SHORT-NAME>
+          <SERVICE-INSTANCE-REF DEST="REQUIRED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/RequiredInstance_CameraFrame</SERVICE-INSTANCE-REF>
+          <SERVICE-DEPLOYMENT-REF DEST="SOMEIP-EVENT-DEPLOYMENT">/SomeipDeployments/CameraFrameService/FrameEvent</SERVICE-DEPLOYMENT-REF>
+        </COM-EVENT-GRANT>
+        <COM-OFFER-SERVICE-GRANT UUID="">
+          <SHORT-NAME>offer_drivingstate</SHORT-NAME>
+          <SERVICE-INSTANCE-REF DEST="PROVIDED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/ProvidedInstance_DrivingState</SERVICE-INSTANCE-REF>
+        </COM-OFFER-SERVICE-GRANT>
+        <COM-EVENT-GRANT UUID="">
+          <SHORT-NAME>send_drivingstate_event</SHORT-NAME>
+          <SERVICE-INSTANCE-REF DEST="PROVIDED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/ProvidedInstance_DrivingState</SERVICE-INSTANCE-REF>
+          <SERVICE-DEPLOYMENT-REF DEST="SOMEIP-EVENT-DEPLOYMENT">/SomeipDeployments/DrivingStateService/DrivingStateEvent</SERVICE-DEPLOYMENT-REF>
+        </COM-EVENT-GRANT>
+        <COM-FIND-SERVICE-GRANT UUID="">
+          <SHORT-NAME>find_drivingstate</SHORT-NAME>
+          <SERVICE-INSTANCE-REF DEST="REQUIRED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/RequiredInstance_DrivingState</SERVICE-INSTANCE-REF>
+        </COM-FIND-SERVICE-GRANT>
+        <COM-EVENT-GRANT UUID="">
+          <SHORT-NAME>receive_drivingstate_event</SHORT-NAME>
+          <SERVICE-INSTANCE-REF DEST="REQUIRED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/RequiredInstance_DrivingState</SERVICE-INSTANCE-REF>
+          <SERVICE-DEPLOYMENT-REF DEST="SOMEIP-EVENT-DEPLOYMENT">/SomeipDeployments/DrivingStateService/DrivingStateEvent</SERVICE-DEPLOYMENT-REF>
+        </COM-EVENT-GRANT>
+        <COM-OFFER-SERVICE-GRANT UUID="">
+          <SHORT-NAME>offer_trajectory</SHORT-NAME>
+          <SERVICE-INSTANCE-REF DEST="PROVIDED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/ProvidedInstance_Trajectory</SERVICE-INSTANCE-REF>
+        </COM-OFFER-SERVICE-GRANT>
+        <COM-EVENT-GRANT UUID="">
+          <SHORT-NAME>send_trajectory_event</SHORT-NAME>
+          <SERVICE-INSTANCE-REF DEST="PROVIDED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/ProvidedInstance_Trajectory</SERVICE-INSTANCE-REF>
+          <SERVICE-DEPLOYMENT-REF DEST="SOMEIP-EVENT-DEPLOYMENT">/SomeipDeployments/TrajectoryService/TrajectoryEvent</SERVICE-DEPLOYMENT-REF>
+        </COM-EVENT-GRANT>
+        <COM-FIND-SERVICE-GRANT UUID="">
+          <SHORT-NAME>find_trajectory</SHORT-NAME>
+          <SERVICE-INSTANCE-REF DEST="REQUIRED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/RequiredInstance_Trajectory</SERVICE-INSTANCE-REF>
+        </COM-FIND-SERVICE-GRANT>
+        <COM-EVENT-GRANT UUID="">
+          <SHORT-NAME>receive_trajectory_event</SHORT-NAME>
+          <SERVICE-INSTANCE-REF DEST="REQUIRED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/RequiredInstance_Trajectory</SERVICE-INSTANCE-REF>
+          <SERVICE-DEPLOYMENT-REF DEST="SOMEIP-EVENT-DEPLOYMENT">/SomeipDeployments/TrajectoryService/TrajectoryEvent</SERVICE-DEPLOYMENT-REF>
+        </COM-EVENT-GRANT>
+        <COM-FIND-SERVICE-GRANT UUID="">
+          <SHORT-NAME>find_trajectory_viz</SHORT-NAME>
+          <SERVICE-INSTANCE-REF DEST="REQUIRED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/RequiredInstance_Trajectory_Viz</SERVICE-INSTANCE-REF>
+        </COM-FIND-SERVICE-GRANT>
+        <COM-EVENT-GRANT UUID="">
+          <SHORT-NAME>receive_trajectory_viz_event</SHORT-NAME>
+          <SERVICE-INSTANCE-REF DEST="REQUIRED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/RequiredInstance_Trajectory_Viz</SERVICE-INSTANCE-REF>
+          <SERVICE-DEPLOYMENT-REF DEST="SOMEIP-EVENT-DEPLOYMENT">/SomeipDeployments/TrajectoryService/TrajectoryEvent</SERVICE-DEPLOYMENT-REF>
+        </COM-EVENT-GRANT>
+        <COM-OFFER-SERVICE-GRANT UUID="">
+          <SHORT-NAME>offer_vehiclestatus</SHORT-NAME>
+          <SERVICE-INSTANCE-REF DEST="PROVIDED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/ProvidedInstance_VehicleStatus</SERVICE-INSTANCE-REF>
+        </COM-OFFER-SERVICE-GRANT>
+        <COM-EVENT-GRANT UUID="">
+          <SHORT-NAME>send_vehiclestatus_event</SHORT-NAME>
+          <SERVICE-INSTANCE-REF DEST="PROVIDED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/ProvidedInstance_VehicleStatus</SERVICE-INSTANCE-REF>
+          <SERVICE-DEPLOYMENT-REF DEST="SOMEIP-EVENT-DEPLOYMENT">/SomeipDeployments/VehicleStatusService/SpeedEvent</SERVICE-DEPLOYMENT-REF>
+        </COM-EVENT-GRANT>
+        <COM-FIND-SERVICE-GRANT UUID="">
+          <SHORT-NAME>find_vehiclestatus</SHORT-NAME>
+          <SERVICE-INSTANCE-REF DEST="REQUIRED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/RequiredInstance_VehicleStatus</SERVICE-INSTANCE-REF>
+        </COM-FIND-SERVICE-GRANT>
+        <COM-EVENT-GRANT UUID="">
+          <SHORT-NAME>receive_vehiclestatus_event</SHORT-NAME>
+          <SERVICE-INSTANCE-REF DEST="REQUIRED-SOMEIP-SERVICE-INSTANCE">/AvSomeipInstances/RequiredInstance_VehicleStatus</SERVICE-INSTANCE-REF>
+          <SERVICE-DEPLOYMENT-REF DEST="SOMEIP-EVENT-DEPLOYMENT">/SomeipDeployments/VehicleStatusService/SpeedEvent</SERVICE-DEPLOYMENT-REF>
+        </COM-EVENT-GRANT>
+      </ELEMENTS>
+    </AR-PACKAGE>
+
+  </AR-PACKAGES>
+</AUTOSAR>

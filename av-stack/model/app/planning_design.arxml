@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Application Design — Planning Adaptive Application.
+
+  Planner::compute_plan and nothing else. Its seven inputs are exactly the two
+  required ports below: six fields from DrivingState, plus ego speed from
+  VehicleStatus. It publishes the trajectory and touches no device.
+
+    planningd/pl_root/RPort_DrivingState    fused state in
+    planningd/pl_root/RPort_VehicleStatus   ego speed in
+    planningd/pl_root/PPort_Trajectory      acceleration + steering horizon out
+
+  Planning is a separate AA because it has a distinct failure mode, not because
+  the reference architecture lists it separately. Stopping planningd while
+  Control keeps running is a state the vehicle can be in and survive: Control
+  follows the remaining steering horizon, decays it, and safe-stops on the
+  staleness gate. That is the Degraded transition, and it is only expressible
+  because this process can be stopped on its own.
+
+  Ego speed comes from Control rather than from Sensing, even though it is a
+  sensed quantity. Control owns the chassis link, so it is the process that has
+  the value; routing it through Sensing would add a hop and a component that
+  does not touch the chassis. If a dedicated wheel-speed or IMU sensor is added
+  later, that is a Sensing port and this required port would move.
+-->
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://autosar.org/schema/r4.0 AUTOSAR_00049.xsd">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>PlanningApp</SHORT-NAME>
+      <ELEMENTS>
+        <PROCESS-DESIGN>
+          <SHORT-NAME>PlanningDesign</SHORT-NAME>
+          <EXECUTABLE-REF DEST="EXECUTABLE">/PlanningApp/exe/planningd</EXECUTABLE-REF>
+        </PROCESS-DESIGN>
+      </ELEMENTS>
+      <AR-PACKAGES>
+        <AR-PACKAGE>
+          <SHORT-NAME>exe</SHORT-NAME>
+          <ELEMENTS>
+            <EXECUTABLE>
+              <SHORT-NAME>planningd</SHORT-NAME>
+              <CATEGORY>APPLICATION_LEVEL</CATEGORY>
+              <LOGGING-BEHAVIOR>USES-LOGGING</LOGGING-BEHAVIOR>
+              <REPORTING-BEHAVIOR>REPORTS-EXECUTION-STATE</REPORTING-BEHAVIOR>
+              <ROOT-SW-COMPONENT-PROTOTYPE>
+                <SHORT-NAME>pl_root</SHORT-NAME>
+                <APPLICATION-TYPE-TREF DEST="ADAPTIVE-APPLICATION-SW-COMPONENT-TYPE">/PlanningApp/swc/Planning</APPLICATION-TYPE-TREF>
+              </ROOT-SW-COMPONENT-PROTOTYPE>
+            </EXECUTABLE>
+          </ELEMENTS>
+        </AR-PACKAGE>
+        <AR-PACKAGE>
+          <SHORT-NAME>swc</SHORT-NAME>
+          <ELEMENTS>
+            <ADAPTIVE-APPLICATION-SW-COMPONENT-TYPE>
+              <SHORT-NAME>Planning</SHORT-NAME>
+              <DESC>
+                <L-2 L="EN">Spatial MPC over a 20-step horizon. Consumes the fused state and ego speed, produces a trajectory. Owns no device and speaks to no chassis.</L-2>
+              </DESC>
+              <PORTS>
+                <R-PORT-PROTOTYPE>
+                  <SHORT-NAME>RPort_DrivingState</SHORT-NAME>
+                  <DESC><L-2 L="EN">cte, epsi, kappa, hasCipo, cipoVelocity, cipoDistance.</L-2></DESC>
+                  <REQUIRED-INTERFACE-TREF DEST="SERVICE-INTERFACE">/AvServiceInterfaces/DrivingStateService</REQUIRED-INTERFACE-TREF>
+                </R-PORT-PROTOTYPE>
+                <R-PORT-PROTOTYPE>
+                  <SHORT-NAME>RPort_VehicleStatus</SHORT-NAME>
+                  <DESC><L-2 L="EN">ego_v. When this is stale or invalid the planner must not run — a plan computed against an assumed speed is worse than no plan.</L-2></DESC>
+                  <REQUIRED-INTERFACE-TREF DEST="SERVICE-INTERFACE">/AvServiceInterfaces/VehicleStatusService</REQUIRED-INTERFACE-TREF>
+                </R-PORT-PROTOTYPE>
+                <P-PORT-PROTOTYPE>
+                  <SHORT-NAME>PPort_Trajectory</SHORT-NAME>
+                  <DESC><L-2 L="EN">Trajectory out.</L-2></DESC>
+                  <PROVIDED-INTERFACE-TREF DEST="SERVICE-INTERFACE">/AvServiceInterfaces/TrajectoryService</PROVIDED-INTERFACE-TREF>
+                </P-PORT-PROTOTYPE>
+              </PORTS>
+            </ADAPTIVE-APPLICATION-SW-COMPONENT-TYPE>
+          </ELEMENTS>
+        </AR-PACKAGE>
+      </AR-PACKAGES>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>

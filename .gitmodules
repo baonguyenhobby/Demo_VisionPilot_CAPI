@@ -1,0 +1,6 @@
+[submodule "vision_pilot"]
+	path = vision_pilot
+	url = https://github.com/autowarefoundation/vision_pilot.git
+[submodule "capi"]
+	path = capi
+	url = https://github.com/AUTOSAR/capi.git

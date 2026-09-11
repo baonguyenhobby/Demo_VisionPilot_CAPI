@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Application Design — Control Adaptive Application.
+
+  The last thing before the actuator, and the only process that touches the
+  chassis. It takes the trajectory, applies index 1 of the steering horizon as
+  upstream main() does, converts the bicycle-model pair into the velocity pair
+  the chassis accepts, and writes it. It also senses ego speed and publishes it.
+
+    controld/ct_root/RPort_Trajectory      trajectory in
+    controld/ct_root/PPort_VehicleStatus   ego speed out
+
+  Control is both the vehicle interface and the last safety gate, in one
+  process, for a hard reason: the chassis is a single bidirectional link
+  (/dev/ttyTHS1, JSON lines) that only one process can own, and a supervisor
+  that is not the last thing before the actuator is not supervising anything.
+
+  Three responsibilities that live here and nowhere else:
+
+    - Unit conversion. Trajectory carries tyre angle (rad) and acceleration
+      (m/s^2); the chassis accepts {'T':13,'X':linear,'Z':angular}. So
+      v_target = v + a*dt and omega = v*tan(delta)/L. This component is the one
+      that knows the vehicle model.
+    - Staleness. If the trajectory stops arriving, follow the remaining horizon
+      with decay, then command a safe stop. This is what makes Degraded a state
+      rather than an outage.
+    - Rate and range limiting, because a planner is allowed to ask for things a
+      chassis should not be asked to do.
+
+  Known chassis quirks it must absorb, none of which belong upstream: the rover
+  is skid-steer, so tan(delta) is an approximation whose error grows with angle;
+  and the driver forces |omega| >= 0.2 whenever linear.x == 0, which fights a
+  lane-keeper emitting small corrections at low speed.
+
+  On the bench this component is a stub that logs and replays; on the rover it
+  is the only process that links ROS 2. Either way the interface above is
+  identical, which is the point.
+-->
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://autosar.org/schema/r4.0 AUTOSAR_00049.xsd">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>ControlApp</SHORT-NAME>
+      <ELEMENTS>
+        <PROCESS-DESIGN>
+          <SHORT-NAME>ControlDesign</SHORT-NAME>
+          <EXECUTABLE-REF DEST="EXECUTABLE">/ControlApp/exe/controld</EXECUTABLE-REF>
+        </PROCESS-DESIGN>
+      </ELEMENTS>
+      <AR-PACKAGES>
+        <AR-PACKAGE>
+          <SHORT-NAME>exe</SHORT-NAME>
+          <ELEMENTS>
+            <EXECUTABLE>
+              <SHORT-NAME>controld</SHORT-NAME>
+              <CATEGORY>APPLICATION_LEVEL</CATEGORY>
+              <LOGGING-BEHAVIOR>USES-LOGGING</LOGGING-BEHAVIOR>
+              <REPORTING-BEHAVIOR>REPORTS-EXECUTION-STATE</REPORTING-BEHAVIOR>
+              <ROOT-SW-COMPONENT-PROTOTYPE>
+                <SHORT-NAME>ct_root</SHORT-NAME>
+                <APPLICATION-TYPE-TREF DEST="ADAPTIVE-APPLICATION-SW-COMPONENT-TYPE">/ControlApp/swc/Control</APPLICATION-TYPE-TREF>
+              </ROOT-SW-COMPONENT-PROTOTYPE>
+            </EXECUTABLE>
+          </ELEMENTS>
+        </AR-PACKAGE>
+        <AR-PACKAGE>
+          <SHORT-NAME>swc</SHORT-NAME>
+          <ELEMENTS>
+            <ADAPTIVE-APPLICATION-SW-COMPONENT-TYPE>
+              <SHORT-NAME>Control</SHORT-NAME>
+              <DESC>
+                <L-2 L="EN">Trajectory tracking, unit conversion to chassis commands, rate and range limiting, staleness safe-stop, and ego speed sensing. The only process that owns the chassis link.</L-2>
+              </DESC>
+              <PORTS>
+                <R-PORT-PROTOTYPE>
+                  <SHORT-NAME>RPort_Trajectory</SHORT-NAME>
+                  <DESC><L-2 L="EN">Trajectory in. Applies steeringHorizonRad[1]; the remainder is what it follows if planning stops.</L-2></DESC>
+                  <REQUIRED-INTERFACE-TREF DEST="SERVICE-INTERFACE">/AvServiceInterfaces/TrajectoryService</REQUIRED-INTERFACE-TREF>
+                </R-PORT-PROTOTYPE>
+                <P-PORT-PROTOTYPE>
+                  <SHORT-NAME>PPort_VehicleStatus</SHORT-NAME>
+                  <DESC><L-2 L="EN">Ego speed out, decoded from the chassis. Sensed here because this is the process that holds the link.</L-2></DESC>
+                  <PROVIDED-INTERFACE-TREF DEST="SERVICE-INTERFACE">/AvServiceInterfaces/VehicleStatusService</PROVIDED-INTERFACE-TREF>
+                </P-PORT-PROTOTYPE>
+              </PORTS>
+            </ADAPTIVE-APPLICATION-SW-COMPONENT-TYPE>
+          </ELEMENTS>
+        </AR-PACKAGE>
+      </AR-PACKAGES>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>

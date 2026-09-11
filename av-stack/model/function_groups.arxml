@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  VisionPilot on AUTOSAR Adaptive (CAPI) — function group.
+
+  AvPilotFG carries the whole degradation story:
+
+    Off        nothing runs
+    Driving    VisionPilot AA + Control AA
+    Degraded   Control AA ONLY  <- VisionPilot is not listed, so EM stops it
+    Safe       nothing runs
+
+  The asymmetry between Driving and Degraded is the design. When PHM reports
+  the perception chain EXPIRED, State Management sets AvPilotFG.Degraded; EM
+  then SIGTERMs VisionPilot (not listed in Degraded) and leaves the Control AA
+  running (listed in both). The degrade is a modelled state transition, not a
+  script — which is the one thing this port buys that ROS 2 cannot express.
+
+  Which process runs in which state is declared per-Process in the execution
+  manifest, not here; this file only declares that the states exist.
+-->
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://autosar.org/schema/r4.0 AUTOSAR_00049.xsd">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>FunctionGroups</SHORT-NAME>
+      <AR-PACKAGES>
+        <AR-PACKAGE>
+          <SHORT-NAME>AvPilot</SHORT-NAME>
+          <ELEMENTS>
+            <MODE-DECLARATION-GROUP>
+              <SHORT-NAME>AvPilotFG</SHORT-NAME>
+              <INITIAL-MODE-REF DEST="MODE-DECLARATION">/FunctionGroups/AvPilot/AvPilotFG/Off</INITIAL-MODE-REF>
+              <MODE-DECLARATIONS>
+                <MODE-DECLARATION>
+                  <SHORT-NAME>Off</SHORT-NAME>
+                </MODE-DECLARATION>
+                <MODE-DECLARATION>
+                  <SHORT-NAME>Driving</SHORT-NAME>
+                </MODE-DECLARATION>
+                <MODE-DECLARATION>
+                  <SHORT-NAME>Degraded</SHORT-NAME>
+                </MODE-DECLARATION>
+                <MODE-DECLARATION>
+                  <SHORT-NAME>Safe</SHORT-NAME>
+                </MODE-DECLARATION>
+              </MODE-DECLARATIONS>
+            </MODE-DECLARATION-GROUP>
+            <FUNCTION-GROUP-SET>
+              <SHORT-NAME>FunctionGroupsSet</SHORT-NAME>
+              <FUNCTION-GROUPS>
+                <MODE-DECLARATION-GROUP-PROTOTYPE>
+                  <SHORT-NAME>AvPilotFG</SHORT-NAME>
+                  <TYPE-TREF DEST="MODE-DECLARATION-GROUP">/FunctionGroups/AvPilot/AvPilotFG</TYPE-TREF>
+                </MODE-DECLARATION-GROUP-PROTOTYPE>
+              </FUNCTION-GROUPS>
+            </FUNCTION-GROUP-SET>
+          </ELEMENTS>
+        </AR-PACKAGE>
+      </AR-PACKAGES>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>

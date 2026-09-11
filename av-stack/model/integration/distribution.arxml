@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Software cluster — the deployable unit.
+
+  One cluster holding both executables and both processes. CLAIMED-FUNCTION-GROUP
+  declares that this cluster owns AvPilotFG, which is what allows its processes
+  to be scheduled against AvPilotFG states; a function group claimed by no
+  cluster is inert.
+
+  Both applications are in ONE cluster deliberately: they are only meaningful
+  together (a supervisor with nothing to supervise is not a useful deployment),
+  and keeping them in one unit means the pair versions together.
+-->
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://autosar.org/schema/r4.0 AUTOSAR_00049.xsd">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>ISOFT</SHORT-NAME>
+      <AR-PACKAGES>
+        <AR-PACKAGE>
+          <SHORT-NAME>Development</SHORT-NAME>
+          <AR-PACKAGES>
+            <AR-PACKAGE>
+              <SHORT-NAME>SoftwareClustersAv</SHORT-NAME>
+              <AR-PACKAGES>
+                <AR-PACKAGE>
+                  <SHORT-NAME>VER_100</SHORT-NAME>
+                  <ELEMENTS>
+                    <SOFTWARE-CLUSTER>
+                      <SHORT-NAME>AvPilotCluster</SHORT-NAME>
+                      <CATEGORY>APPLICATION_LAYER</CATEGORY>
+                      <CLAIMED-FUNCTION-GROUP-REFS>
+                        <CLAIMED-FUNCTION-GROUP-REF DEST="MODE-DECLARATION-GROUP-PROTOTYPE">/FunctionGroups/AvPilot/FunctionGroupsSet/AvPilotFG</CLAIMED-FUNCTION-GROUP-REF>
+                      </CLAIMED-FUNCTION-GROUP-REFS>
+                      <CONTAINED-AR-ELEMENT-REFS>
+                        <CONTAINED-AR-ELEMENT-REF DEST="EXECUTABLE">/SensingApp/exe/sensingd</CONTAINED-AR-ELEMENT-REF>
+                        <CONTAINED-AR-ELEMENT-REF DEST="EXECUTABLE">/PerceptionApp/exe/perceptiond</CONTAINED-AR-ELEMENT-REF>
+                        <CONTAINED-AR-ELEMENT-REF DEST="EXECUTABLE">/PlanningApp/exe/planningd</CONTAINED-AR-ELEMENT-REF>
+                        <CONTAINED-AR-ELEMENT-REF DEST="EXECUTABLE">/ControlApp/exe/controld</CONTAINED-AR-ELEMENT-REF>
+                      </CONTAINED-AR-ELEMENT-REFS>
+                      <CONTAINED-PROCESS-REFS>
+                        <CONTAINED-PROCESS-REF DEST="PROCESS">/AvDeployment/sensing_process</CONTAINED-PROCESS-REF>
+                        <CONTAINED-PROCESS-REF DEST="PROCESS">/AvDeployment/perception_process</CONTAINED-PROCESS-REF>
+                        <CONTAINED-PROCESS-REF DEST="PROCESS">/AvDeployment/planning_process</CONTAINED-PROCESS-REF>
+                        <CONTAINED-PROCESS-REF DEST="PROCESS">/AvDeployment/control_process</CONTAINED-PROCESS-REF>
+                      </CONTAINED-PROCESS-REFS>
+                      <VENDOR-ID>1</VENDOR-ID>
+                      <VERSION>1.0.0</VERSION>
+                    </SOFTWARE-CLUSTER>
+                  </ELEMENTS>
+                </AR-PACKAGE>
+              </AR-PACKAGES>
+            </AR-PACKAGE>
+          </AR-PACKAGES>
+        </AR-PACKAGE>
+      </AR-PACKAGES>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>

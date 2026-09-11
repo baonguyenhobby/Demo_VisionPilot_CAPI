@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Application Design — Perception Adaptive Application.
+
+  InferencePipeline (AutoDrive / AutoSteer / AutoSpeed) plus LongitudinalFusion
+  and LateralFusion. Consumes frames by reference, produces the fused
+  lane-relative state and CIPO estimate. It never sees a sensor device and never
+  computes a command.
+
+  Three ports:
+
+    perceptiond/pc_root/RPort_CameraFrame    frames in
+    perceptiond/pc_root/PPort_DrivingState   fused state out
+    perceptiond/pc_root/RPort_Trajectory     DEBUG ONLY
+
+  The third needs justifying, because at first glance it is a cycle. It is not
+  in the data path: Visualization draws the plan on top of the camera frame, the
+  frame is here and must not go on the wire, so the plan comes here instead. The
+  overlay is one cycle behind, which is correct for a debug view and irrelevant
+  to control. Nothing in inference, fusion or the published DrivingState reads
+  it. On target with visualization off, the port simply never subscribes.
+
+  If that dependency ever looks load-bearing, delete the port — losing the
+  overlay is the entire consequence.
+-->
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://autosar.org/schema/r4.0 AUTOSAR_00049.xsd">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>PerceptionApp</SHORT-NAME>
+      <ELEMENTS>
+        <PROCESS-DESIGN>
+          <SHORT-NAME>PerceptionDesign</SHORT-NAME>
+          <EXECUTABLE-REF DEST="EXECUTABLE">/PerceptionApp/exe/perceptiond</EXECUTABLE-REF>
+        </PROCESS-DESIGN>
+      </ELEMENTS>
+      <AR-PACKAGES>
+        <AR-PACKAGE>
+          <SHORT-NAME>exe</SHORT-NAME>
+          <ELEMENTS>
+            <EXECUTABLE>
+              <SHORT-NAME>perceptiond</SHORT-NAME>
+              <CATEGORY>APPLICATION_LEVEL</CATEGORY>
+              <LOGGING-BEHAVIOR>USES-LOGGING</LOGGING-BEHAVIOR>
+              <REPORTING-BEHAVIOR>REPORTS-EXECUTION-STATE</REPORTING-BEHAVIOR>
+              <ROOT-SW-COMPONENT-PROTOTYPE>
+                <SHORT-NAME>pc_root</SHORT-NAME>
+                <APPLICATION-TYPE-TREF DEST="ADAPTIVE-APPLICATION-SW-COMPONENT-TYPE">/PerceptionApp/swc/Perception</APPLICATION-TYPE-TREF>
+              </ROOT-SW-COMPONENT-PROTOTYPE>
+            </EXECUTABLE>
+          </ELEMENTS>
+        </AR-PACKAGE>
+        <AR-PACKAGE>
+          <SHORT-NAME>swc</SHORT-NAME>
+          <ELEMENTS>
+            <ADAPTIVE-APPLICATION-SW-COMPONENT-TYPE>
+              <SHORT-NAME>Perception</SHORT-NAME>
+              <DESC>
+                <L-2 L="EN">Inference and fusion. Produces a lane-relative state and CIPO estimate; produces no command and owns no device.</L-2>
+              </DESC>
+              <PORTS>
+                <R-PORT-PROTOTYPE>
+                  <SHORT-NAME>RPort_CameraFrame</SHORT-NAME>
+                  <DESC><L-2 L="EN">Frame descriptors in. The pixels are read from the shared segment this descriptor names, not from the event.</L-2></DESC>
+                  <REQUIRED-INTERFACE-TREF DEST="SERVICE-INTERFACE">/AvServiceInterfaces/CameraFrameService</REQUIRED-INTERFACE-TREF>
+                </R-PORT-PROTOTYPE>
+                <P-PORT-PROTOTYPE>
+                  <SHORT-NAME>PPort_DrivingState</SHORT-NAME>
+                  <DESC><L-2 L="EN">Fused state out.</L-2></DESC>
+                  <PROVIDED-INTERFACE-TREF DEST="SERVICE-INTERFACE">/AvServiceInterfaces/DrivingStateService</PROVIDED-INTERFACE-TREF>
+                </P-PORT-PROTOTYPE>
+                <R-PORT-PROTOTYPE>
+                  <SHORT-NAME>RPort_Trajectory</SHORT-NAME>
+                  <DESC><L-2 L="EN">Debug only: lets the visualization overlay draw the plan on the frame it already holds. Not an input to anything perception computes.</L-2></DESC>
+                  <REQUIRED-INTERFACE-TREF DEST="SERVICE-INTERFACE">/AvServiceInterfaces/TrajectoryService</REQUIRED-INTERFACE-TREF>
+                </R-PORT-PROTOTYPE>
+              </PORTS>
+            </ADAPTIVE-APPLICATION-SW-COMPONENT-TYPE>
+          </ELEMENTS>
+        </AR-PACKAGE>
+      </AR-PACKAGES>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>

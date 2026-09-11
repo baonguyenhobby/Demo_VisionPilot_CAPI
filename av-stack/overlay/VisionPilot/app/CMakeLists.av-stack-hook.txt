@@ -1,0 +1,5 @@
+# Add to the END of upstream VisionPilot/app/CMakeLists.txt:
+
+if(ENABLE_AP_INTERFACE)
+    add_subdirectory(av-stack)
+endif()

@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Service instances. One provided instance per producer, one required instance
+  per consumer; provided and required must carry the SAME instance id or
+  discovery silently never matches.
+
+  Instance ids:  1 VehicleStatus  3 CameraFrame  4 DrivingState  5 Trajectory
+  2 is retired with VehicleControlService and deliberately not reused.
+
+  TrajectoryService has TWO required instances against the one provided
+  instance: Control consumes it to drive the chassis, Perception consumes it
+  only so the visualization overlay can draw the plan on the frame it already
+  holds. Same id, same event group, different processes.
+-->
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://autosar.org/schema/r4.0 AUTOSAR_00049.xsd">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>AvSomeipInstances</SHORT-NAME>
+      <ELEMENTS>
+
+        <PROVIDED-SOMEIP-SERVICE-INSTANCE>
+          <SHORT-NAME>ProvidedInstance_CameraFrame</SHORT-NAME>
+          <SERVICE-INTERFACE-DEPLOYMENT-REF DEST="SOMEIP-SERVICE-INTERFACE-DEPLOYMENT">/SomeipDeployments/CameraFrameService</SERVICE-INTERFACE-DEPLOYMENT-REF>
+          <PROVIDED-EVENT-GROUPS>
+            <SOMEIP-PROVIDED-EVENT-GROUP>
+              <SHORT-NAME>ProvidedCameraFrameEventGroup</SHORT-NAME>
+              <EVENT-GROUP-REF DEST="SOMEIP-EVENT-GROUP">/SomeipDeployments/CameraFrameService/CameraFrameEventGroup</EVENT-GROUP-REF>
+              <MULTICAST-THRESHOLD>0</MULTICAST-THRESHOLD>
+            </SOMEIP-PROVIDED-EVENT-GROUP>
+          </PROVIDED-EVENT-GROUPS>
+          <SERVICE-INSTANCE-ID>3</SERVICE-INSTANCE-ID>
+        </PROVIDED-SOMEIP-SERVICE-INSTANCE>
+
+        <REQUIRED-SOMEIP-SERVICE-INSTANCE>
+          <SHORT-NAME>RequiredInstance_CameraFrame</SHORT-NAME>
+          <SERVICE-INTERFACE-DEPLOYMENT-REF DEST="SOMEIP-SERVICE-INTERFACE-DEPLOYMENT">/SomeipDeployments/CameraFrameService</SERVICE-INTERFACE-DEPLOYMENT-REF>
+          <REQUIRED-EVENT-GROUPS>
+            <SOMEIP-REQUIRED-EVENT-GROUP>
+              <SHORT-NAME>RequiredCameraFrameEventGroup</SHORT-NAME>
+              <EVENT-GROUP-REF DEST="SOMEIP-EVENT-GROUP">/SomeipDeployments/CameraFrameService/CameraFrameEventGroup</EVENT-GROUP-REF>
+            </SOMEIP-REQUIRED-EVENT-GROUP>
+          </REQUIRED-EVENT-GROUPS>
+          <REQUIRED-MINOR-VERSION>0</REQUIRED-MINOR-VERSION>
+          <REQUIRED-SERVICE-INSTANCE-ID>3</REQUIRED-SERVICE-INSTANCE-ID>
+          <VERSION-DRIVEN-FIND-BEHAVIOR>MINIMUM-MINOR-VERSION</VERSION-DRIVEN-FIND-BEHAVIOR>
+        </REQUIRED-SOMEIP-SERVICE-INSTANCE>
+
+        <PROVIDED-SOMEIP-SERVICE-INSTANCE>
+          <SHORT-NAME>ProvidedInstance_DrivingState</SHORT-NAME>
+          <SERVICE-INTERFACE-DEPLOYMENT-REF DEST="SOMEIP-SERVICE-INTERFACE-DEPLOYMENT">/SomeipDeployments/DrivingStateService</SERVICE-INTERFACE-DEPLOYMENT-REF>
+          <PROVIDED-EVENT-GROUPS>
+            <SOMEIP-PROVIDED-EVENT-GROUP>
+              <SHORT-NAME>ProvidedDrivingStateEventGroup</SHORT-NAME>
+              <EVENT-GROUP-REF DEST="SOMEIP-EVENT-GROUP">/SomeipDeployments/DrivingStateService/DrivingStateEventGroup</EVENT-GROUP-REF>
+              <MULTICAST-THRESHOLD>0</MULTICAST-THRESHOLD>
+            </SOMEIP-PROVIDED-EVENT-GROUP>
+          </PROVIDED-EVENT-GROUPS>
+          <SERVICE-INSTANCE-ID>4</SERVICE-INSTANCE-ID>
+        </PROVIDED-SOMEIP-SERVICE-INSTANCE>
+
+        <REQUIRED-SOMEIP-SERVICE-INSTANCE>
+          <SHORT-NAME>RequiredInstance_DrivingState</SHORT-NAME>
+          <SERVICE-INTERFACE-DEPLOYMENT-REF DEST="SOMEIP-SERVICE-INTERFACE-DEPLOYMENT">/SomeipDeployments/DrivingStateService</SERVICE-INTERFACE-DEPLOYMENT-REF>
+          <REQUIRED-EVENT-GROUPS>
+            <SOMEIP-REQUIRED-EVENT-GROUP>
+              <SHORT-NAME>RequiredDrivingStateEventGroup</SHORT-NAME>
+              <EVENT-GROUP-REF DEST="SOMEIP-EVENT-GROUP">/SomeipDeployments/DrivingStateService/DrivingStateEventGroup</EVENT-GROUP-REF>
+            </SOMEIP-REQUIRED-EVENT-GROUP>
+          </REQUIRED-EVENT-GROUPS>
+          <REQUIRED-MINOR-VERSION>0</REQUIRED-MINOR-VERSION>
+          <REQUIRED-SERVICE-INSTANCE-ID>4</REQUIRED-SERVICE-INSTANCE-ID>
+          <VERSION-DRIVEN-FIND-BEHAVIOR>MINIMUM-MINOR-VERSION</VERSION-DRIVEN-FIND-BEHAVIOR>
+        </REQUIRED-SOMEIP-SERVICE-INSTANCE>
+
+        <PROVIDED-SOMEIP-SERVICE-INSTANCE>
+          <SHORT-NAME>ProvidedInstance_Trajectory</SHORT-NAME>
+          <SERVICE-INTERFACE-DEPLOYMENT-REF DEST="SOMEIP-SERVICE-INTERFACE-DEPLOYMENT">/SomeipDeployments/TrajectoryService</SERVICE-INTERFACE-DEPLOYMENT-REF>
+          <PROVIDED-EVENT-GROUPS>
+            <SOMEIP-PROVIDED-EVENT-GROUP>
+              <SHORT-NAME>ProvidedTrajectoryEventGroup</SHORT-NAME>
+              <EVENT-GROUP-REF DEST="SOMEIP-EVENT-GROUP">/SomeipDeployments/TrajectoryService/TrajectoryEventGroup</EVENT-GROUP-REF>
+              <MULTICAST-THRESHOLD>0</MULTICAST-THRESHOLD>
+            </SOMEIP-PROVIDED-EVENT-GROUP>
+          </PROVIDED-EVENT-GROUPS>
+          <SERVICE-INSTANCE-ID>5</SERVICE-INSTANCE-ID>
+        </PROVIDED-SOMEIP-SERVICE-INSTANCE>
+
+        <REQUIRED-SOMEIP-SERVICE-INSTANCE>
+          <SHORT-NAME>RequiredInstance_Trajectory</SHORT-NAME>
+          <SERVICE-INTERFACE-DEPLOYMENT-REF DEST="SOMEIP-SERVICE-INTERFACE-DEPLOYMENT">/SomeipDeployments/TrajectoryService</SERVICE-INTERFACE-DEPLOYMENT-REF>
+          <REQUIRED-EVENT-GROUPS>
+            <SOMEIP-REQUIRED-EVENT-GROUP>
+              <SHORT-NAME>RequiredTrajectoryEventGroup</SHORT-NAME>
+              <EVENT-GROUP-REF DEST="SOMEIP-EVENT-GROUP">/SomeipDeployments/TrajectoryService/TrajectoryEventGroup</EVENT-GROUP-REF>
+            </SOMEIP-REQUIRED-EVENT-GROUP>
+          </REQUIRED-EVENT-GROUPS>
+          <REQUIRED-MINOR-VERSION>0</REQUIRED-MINOR-VERSION>
+          <REQUIRED-SERVICE-INSTANCE-ID>5</REQUIRED-SERVICE-INSTANCE-ID>
+          <VERSION-DRIVEN-FIND-BEHAVIOR>MINIMUM-MINOR-VERSION</VERSION-DRIVEN-FIND-BEHAVIOR>
+        </REQUIRED-SOMEIP-SERVICE-INSTANCE>
+
+        <REQUIRED-SOMEIP-SERVICE-INSTANCE>
+          <SHORT-NAME>RequiredInstance_Trajectory_Viz</SHORT-NAME>
+          <SERVICE-INTERFACE-DEPLOYMENT-REF DEST="SOMEIP-SERVICE-INTERFACE-DEPLOYMENT">/SomeipDeployments/TrajectoryService</SERVICE-INTERFACE-DEPLOYMENT-REF>
+          <REQUIRED-EVENT-GROUPS>
+            <SOMEIP-REQUIRED-EVENT-GROUP>
+              <SHORT-NAME>RequiredTrajectory_VizEventGroup</SHORT-NAME>
+              <EVENT-GROUP-REF DEST="SOMEIP-EVENT-GROUP">/SomeipDeployments/TrajectoryService/TrajectoryEventGroup</EVENT-GROUP-REF>
+            </SOMEIP-REQUIRED-EVENT-GROUP>
+          </REQUIRED-EVENT-GROUPS>
+          <REQUIRED-MINOR-VERSION>0</REQUIRED-MINOR-VERSION>
+          <REQUIRED-SERVICE-INSTANCE-ID>5</REQUIRED-SERVICE-INSTANCE-ID>
+          <VERSION-DRIVEN-FIND-BEHAVIOR>MINIMUM-MINOR-VERSION</VERSION-DRIVEN-FIND-BEHAVIOR>
+        </REQUIRED-SOMEIP-SERVICE-INSTANCE>
+
+        <PROVIDED-SOMEIP-SERVICE-INSTANCE>
+          <SHORT-NAME>ProvidedInstance_VehicleStatus</SHORT-NAME>
+          <SERVICE-INTERFACE-DEPLOYMENT-REF DEST="SOMEIP-SERVICE-INTERFACE-DEPLOYMENT">/SomeipDeployments/VehicleStatusService</SERVICE-INTERFACE-DEPLOYMENT-REF>
+          <PROVIDED-EVENT-GROUPS>
+            <SOMEIP-PROVIDED-EVENT-GROUP>
+              <SHORT-NAME>ProvidedVehicleStatusEventGroup</SHORT-NAME>
+              <EVENT-GROUP-REF DEST="SOMEIP-EVENT-GROUP">/SomeipDeployments/VehicleStatusService/VehicleStatusEventGroup</EVENT-GROUP-REF>
+              <MULTICAST-THRESHOLD>0</MULTICAST-THRESHOLD>
+            </SOMEIP-PROVIDED-EVENT-GROUP>
+          </PROVIDED-EVENT-GROUPS>
+          <SERVICE-INSTANCE-ID>1</SERVICE-INSTANCE-ID>
+        </PROVIDED-SOMEIP-SERVICE-INSTANCE>
+
+        <REQUIRED-SOMEIP-SERVICE-INSTANCE>
+          <SHORT-NAME>RequiredInstance_VehicleStatus</SHORT-NAME>
+          <SERVICE-INTERFACE-DEPLOYMENT-REF DEST="SOMEIP-SERVICE-INTERFACE-DEPLOYMENT">/SomeipDeployments/VehicleStatusService</SERVICE-INTERFACE-DEPLOYMENT-REF>
+          <REQUIRED-EVENT-GROUPS>
+            <SOMEIP-REQUIRED-EVENT-GROUP>
+              <SHORT-NAME>RequiredVehicleStatusEventGroup</SHORT-NAME>
+              <EVENT-GROUP-REF DEST="SOMEIP-EVENT-GROUP">/SomeipDeployments/VehicleStatusService/VehicleStatusEventGroup</EVENT-GROUP-REF>
+            </SOMEIP-REQUIRED-EVENT-GROUP>
+          </REQUIRED-EVENT-GROUPS>
+          <REQUIRED-MINOR-VERSION>0</REQUIRED-MINOR-VERSION>
+          <REQUIRED-SERVICE-INSTANCE-ID>1</REQUIRED-SERVICE-INSTANCE-ID>
+          <VERSION-DRIVEN-FIND-BEHAVIOR>MINIMUM-MINOR-VERSION</VERSION-DRIVEN-FIND-BEHAVIOR>
+        </REQUIRED-SOMEIP-SERVICE-INSTANCE>
+
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>

@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  VisionPilot on AUTOSAR Adaptive (CAPI) — SOME/IP interface deployment.
+
+  This file is where the transport decision lives. Application code does not
+  change if these values change; that separation is the point of doing the port
+  this way rather than calling a socket API from VisionPilot.
+
+  Transport, and why:
+
+    FrameEvent          UDP   34 B. A reference, not an image: slot indices into
+                              Sensing's shared-memory ring. The 3 MB of pixels
+                              never enter ara::com, so the frame link needs no
+                              SOME/IP-TP segmentation and no TCP.
+    DrivingStateEvent   UDP   47 B. One datagram. No retransmit wanted — a late
+                              perception sample is worse than a missing one.
+    TrajectoryEvent     UDP   97 B. Still one datagram even carrying the whole
+                              20-step steering horizon.
+    SpeedEvent          UDP   17 B. Same reasoning; Planning's staleness gate is
+                              the intended detector for a lost sample.
+
+  All four are small and bounded, so UDP is right for all of them and the
+  transport question is closed. That stays true only because pixel data is
+  passed by reference — an image-carrying interface would need TCP or
+  SOME/IP-TP and would reopen it.
+
+  ID allocation (local to this project, no OEM registry involved):
+    0x1235 VehicleStatusService   0x0002 SpeedEvent
+    0x1237 CameraFrameService     0x0004 FrameEvent
+    0x1238 DrivingStateService    0x0005 DrivingStateEvent
+    0x1239 TrajectoryService      0x0006 TrajectoryEvent
+
+  0x1234 and 0x1236 are left unallocated on purpose. 0x1234 was a camera service
+  in an early revision; 0x1236 was VehicleControlService, retired when Control
+  became terminal and actuation stopped crossing a boundary. Reusing either
+  would make an old and a new deployment silently interoperable on the wire —
+  the worst kind of failure, because it looks like it works.
+
+  EVENT-ID must be < 0x8000. SOME/IP splits the 16-bit message-ID field by its
+  top bit (0 for methods, 1 for events) and the binding sets that bit itself, so
+  the model carries only the lower 15 bits. Writing 0x8001 here (as an earlier
+  revision of this design did) is rejected by ara-gen with
+  "[CM ] CODE-001: Events in some/ip must have event id < 0x8000". On the wire
+  SpeedEvent is still message ID 0x8002; that is the binding's doing, not ours.
+
+  All four processes sit on one SoC, so SOME/IP is buying inter-ECU semantics
+  this deployment does not use. It is chosen because it is the only standardised
+  binding CAPI actually ships — see README.md for why isoft/npc is not a
+  substitute, and why the frame link uses shared memory instead.
+-->
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://autosar.org/schema/r4.0 AUTOSAR_00049.xsd">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>SomeipDeployments</SHORT-NAME>
+      <ELEMENTS>
+
+        <SOMEIP-SERVICE-INTERFACE-DEPLOYMENT UUID="">
+          <SHORT-NAME>CameraFrameService</SHORT-NAME>
+          <EVENT-DEPLOYMENTS>
+            <SOMEIP-EVENT-DEPLOYMENT>
+              <SHORT-NAME>FrameEvent</SHORT-NAME>
+              <EVENT-REF DEST="VARIABLE-DATA-PROTOTYPE">/AvServiceInterfaces/CameraFrameService/FrameEvent</EVENT-REF>
+              <EVENT-ID>0x0004</EVENT-ID>
+              <TRANSPORT-PROTOCOL>UDP</TRANSPORT-PROTOCOL>
+            </SOMEIP-EVENT-DEPLOYMENT>
+          </EVENT-DEPLOYMENTS>
+          <SERVICE-INTERFACE-REF DEST="SERVICE-INTERFACE">/AvServiceInterfaces/CameraFrameService</SERVICE-INTERFACE-REF>
+          <EVENT-GROUPS>
+            <SOMEIP-EVENT-GROUP>
+              <SHORT-NAME>CameraFrameEventGroup</SHORT-NAME>
+              <EVENT-GROUP-ID>1</EVENT-GROUP-ID>
+              <EVENT-REFS>
+                <EVENT-REF DEST="SOMEIP-EVENT-DEPLOYMENT">/SomeipDeployments/CameraFrameService/FrameEvent</EVENT-REF>
+              </EVENT-REFS>
+            </SOMEIP-EVENT-GROUP>
+          </EVENT-GROUPS>
+          <SERVICE-INTERFACE-ID>0x1237</SERVICE-INTERFACE-ID>
+          <SERVICE-INTERFACE-VERSION>
+            <MAJOR-VERSION>1</MAJOR-VERSION>
+            <MINOR-VERSION>0</MINOR-VERSION>
+          </SERVICE-INTERFACE-VERSION>
+        </SOMEIP-SERVICE-INTERFACE-DEPLOYMENT>
+
+        <SOMEIP-SERVICE-INTERFACE-DEPLOYMENT UUID="">
+          <SHORT-NAME>DrivingStateService</SHORT-NAME>
+          <EVENT-DEPLOYMENTS>
+            <SOMEIP-EVENT-DEPLOYMENT>
+              <SHORT-NAME>DrivingStateEvent</SHORT-NAME>
+              <EVENT-REF DEST="VARIABLE-DATA-PROTOTYPE">/AvServiceInterfaces/DrivingStateService/DrivingStateEvent</EVENT-REF>
+              <EVENT-ID>0x0005</EVENT-ID>
+              <TRANSPORT-PROTOCOL>UDP</TRANSPORT-PROTOCOL>
+            </SOMEIP-EVENT-DEPLOYMENT>
+          </EVENT-DEPLOYMENTS>
+          <SERVICE-INTERFACE-REF DEST="SERVICE-INTERFACE">/AvServiceInterfaces/DrivingStateService</SERVICE-INTERFACE-REF>
+          <EVENT-GROUPS>
+            <SOMEIP-EVENT-GROUP>
+              <SHORT-NAME>DrivingStateEventGroup</SHORT-NAME>
+              <EVENT-GROUP-ID>1</EVENT-GROUP-ID>
+              <EVENT-REFS>
+                <EVENT-REF DEST="SOMEIP-EVENT-DEPLOYMENT">/SomeipDeployments/DrivingStateService/DrivingStateEvent</EVENT-REF>
+              </EVENT-REFS>
+            </SOMEIP-EVENT-GROUP>
+          </EVENT-GROUPS>
+          <SERVICE-INTERFACE-ID>0x1238</SERVICE-INTERFACE-ID>
+          <SERVICE-INTERFACE-VERSION>
+            <MAJOR-VERSION>1</MAJOR-VERSION>
+            <MINOR-VERSION>0</MINOR-VERSION>
+          </SERVICE-INTERFACE-VERSION>
+        </SOMEIP-SERVICE-INTERFACE-DEPLOYMENT>
+
+        <SOMEIP-SERVICE-INTERFACE-DEPLOYMENT UUID="">
+          <SHORT-NAME>TrajectoryService</SHORT-NAME>
+          <EVENT-DEPLOYMENTS>
+            <SOMEIP-EVENT-DEPLOYMENT>
+              <SHORT-NAME>TrajectoryEvent</SHORT-NAME>
+              <EVENT-REF DEST="VARIABLE-DATA-PROTOTYPE">/AvServiceInterfaces/TrajectoryService/TrajectoryEvent</EVENT-REF>
+              <EVENT-ID>0x0006</EVENT-ID>
+              <TRANSPORT-PROTOCOL>UDP</TRANSPORT-PROTOCOL>
+            </SOMEIP-EVENT-DEPLOYMENT>
+          </EVENT-DEPLOYMENTS>
+          <SERVICE-INTERFACE-REF DEST="SERVICE-INTERFACE">/AvServiceInterfaces/TrajectoryService</SERVICE-INTERFACE-REF>
+          <EVENT-GROUPS>
+            <SOMEIP-EVENT-GROUP>
+              <SHORT-NAME>TrajectoryEventGroup</SHORT-NAME>
+              <EVENT-GROUP-ID>1</EVENT-GROUP-ID>
+              <EVENT-REFS>
+                <EVENT-REF DEST="SOMEIP-EVENT-DEPLOYMENT">/SomeipDeployments/TrajectoryService/TrajectoryEvent</EVENT-REF>
+              </EVENT-REFS>
+            </SOMEIP-EVENT-GROUP>
+          </EVENT-GROUPS>
+          <SERVICE-INTERFACE-ID>0x1239</SERVICE-INTERFACE-ID>
+          <SERVICE-INTERFACE-VERSION>
+            <MAJOR-VERSION>1</MAJOR-VERSION>
+            <MINOR-VERSION>0</MINOR-VERSION>
+          </SERVICE-INTERFACE-VERSION>
+        </SOMEIP-SERVICE-INTERFACE-DEPLOYMENT>
+
+        <SOMEIP-SERVICE-INTERFACE-DEPLOYMENT UUID="">
+          <SHORT-NAME>VehicleStatusService</SHORT-NAME>
+          <EVENT-DEPLOYMENTS>
+            <SOMEIP-EVENT-DEPLOYMENT>
+              <SHORT-NAME>SpeedEvent</SHORT-NAME>
+              <EVENT-REF DEST="VARIABLE-DATA-PROTOTYPE">/AvServiceInterfaces/VehicleStatusService/SpeedEvent</EVENT-REF>
+              <EVENT-ID>0x0002</EVENT-ID>
+              <TRANSPORT-PROTOCOL>UDP</TRANSPORT-PROTOCOL>
+            </SOMEIP-EVENT-DEPLOYMENT>
+          </EVENT-DEPLOYMENTS>
+          <SERVICE-INTERFACE-REF DEST="SERVICE-INTERFACE">/AvServiceInterfaces/VehicleStatusService</SERVICE-INTERFACE-REF>
+          <EVENT-GROUPS>
+            <SOMEIP-EVENT-GROUP>
+              <SHORT-NAME>VehicleStatusEventGroup</SHORT-NAME>
+              <EVENT-GROUP-ID>1</EVENT-GROUP-ID>
+              <EVENT-REFS>
+                <EVENT-REF DEST="SOMEIP-EVENT-DEPLOYMENT">/SomeipDeployments/VehicleStatusService/SpeedEvent</EVENT-REF>
+              </EVENT-REFS>
+            </SOMEIP-EVENT-GROUP>
+          </EVENT-GROUPS>
+          <SERVICE-INTERFACE-ID>0x1235</SERVICE-INTERFACE-ID>
+          <SERVICE-INTERFACE-VERSION>
+            <MAJOR-VERSION>1</MAJOR-VERSION>
+            <MINOR-VERSION>0</MINOR-VERSION>
+          </SERVICE-INTERFACE-VERSION>
+        </SOMEIP-SERVICE-INTERFACE-DEPLOYMENT>
+
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>

@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  VisionPilot on AUTOSAR Adaptive (CAPI) — service interfaces.
+
+  Four interfaces, all event-only. There are no methods anywhere in this model:
+  every exchange is a periodic stream where only the newest value matters, which
+  is what an Event is for. A Field would add last-value semantics nothing needs;
+  a Method would add a round trip inside a 50 ms control period.
+
+  The four boundaries follow the reference AD decomposition — Sensing,
+  Perception, Planning, Control — one Adaptive Application each:
+
+    CameraFrameService    sensingd    -> perceptiond    frame descriptor
+    DrivingStateService   perceptiond -> planningd      fused lane/CIPO state
+    TrajectoryService     planningd   -> controld       acceleration + steering horizon
+    VehicleStatusService  controld    -> planningd      ego speed
+
+  Localization is absent, deliberately and visibly. VisionPilot estimates a
+  lane-relative state, not a map pose; on the rover /odom exists and nothing
+  consumes it. A Localization AA would slot between Sensing and Perception if
+  one is ever written, and no interface here pretends to be it.
+
+  ===========================================================================
+  Why Sensing is its own AA even though a frame is 3 MB
+
+  Sensing is the abstraction over sensors — camera today, radar and lidar later.
+  Folding it into Perception would save bandwidth and destroy the layer that
+  makes a new sensor a new provided port rather than an edit inside Perception.
+  The abstraction is worth more than the bytes.
+
+  The bytes are handled by not sending them. Sensing owns a shared-memory ring;
+  each frame is written into a slot and only the FrameDescriptor (34 B) travels
+  through ara::com. Perception maps the same segment read-only. The interface is
+  fully modelled; only the buffer transport is not.
+
+  Payload class, not sensor type, picks the transport. Camera and lidar are
+  large and get the descriptor + shared-memory pattern; radar detections are a
+  bounded list of a few KB and would go over SOME/IP directly, with no shared
+  memory at all. The interface shape stays uniform either way.
+
+  WHAT THIS COSTS, stated plainly because the ARXML cannot express it:
+    - E2E protection covers the descriptor, never the pixels. A payload
+      integrity check has to be the ring's own (generation + CRC in the slot
+      header).
+    - IAM does not gate access to the segment. Filesystem permissions on the
+      /dev/shm object do, which means the user and resource group EM starts each
+      process under are load-bearing — see the deployment manifest.
+    - It is a documented architectural deviation, not something a reviewer can
+      find by reading the model alone.
+
+  On the Orin the better form is a DMA-buf pool allocated once at startup, with
+  FDs exchanged a single time over a unix socket and the per-frame event
+  carrying only the slot index — the same descriptor, with the frame never
+  touching host memory. An FD is not serialisable, so it can never ride the
+  event itself.
+  ===========================================================================
+
+  There is no gateway AA. A gateway bridges two middlewares; with ROS 2 removed
+  from the perception and planning path there is no second middleware, and the
+  chassis is a device that Control drives directly.
+
+  Unit mismatch to resolve OUTSIDE this model: Trajectory carries a
+  bicycle-model pair (tyre angle in rad, acceleration in m/s^2) and the ESP32
+  accepts a velocity pair ({'T':13,'X':linear,'Z':angular}). The conversion
+  belongs in Control, which is the component that knows the vehicle model — not
+  here, and not in Planning.
+-->
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://autosar.org/schema/r4.0 AUTOSAR_00049.xsd">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>AvServiceInterfaces</SHORT-NAME>
+      <ELEMENTS>
+
+        <SERVICE-INTERFACE>
+          <SHORT-NAME>CameraFrameService</SHORT-NAME>
+          <DESC>
+            <L-2 L="EN">Camera frames offered by the Sensing AA as shared-memory references. Carries no pixel data.</L-2>
+          </DESC>
+          <NAMESPACES>
+            <SYMBOL-PROPS><SHORT-NAME>av</SHORT-NAME><SYMBOL>av</SYMBOL></SYMBOL-PROPS>
+            <SYMBOL-PROPS><SHORT-NAME>vp</SHORT-NAME><SYMBOL>vp</SYMBOL></SYMBOL-PROPS>
+            <SYMBOL-PROPS><SHORT-NAME>cm</SHORT-NAME><SYMBOL>cm</SYMBOL></SYMBOL-PROPS>
+          </NAMESPACES>
+          <MAJOR-VERSION>1</MAJOR-VERSION>
+          <MINOR-VERSION>0</MINOR-VERSION>
+          <EVENTS>
+            <VARIABLE-DATA-PROTOTYPE>
+              <SHORT-NAME>FrameEvent</SHORT-NAME>
+              <DESC><L-2 L="EN">One capture: BEV-warped and plain-resized images, referenced by ring slot. Both travel in one sample because they share an exposure.</L-2></DESC>
+              <TYPE-TREF DEST="STD-CPP-IMPLEMENTATION-DATA-TYPE">/AvTypes/DataTypes/FrameDescriptor</TYPE-TREF>
+            </VARIABLE-DATA-PROTOTYPE>
+          </EVENTS>
+        </SERVICE-INTERFACE>
+
+        <SERVICE-INTERFACE>
+          <SHORT-NAME>DrivingStateService</SHORT-NAME>
+          <DESC>
+            <L-2 L="EN">Fused lane-relative state and CIPO estimate produced by the Perception AA.</L-2>
+          </DESC>
+          <NAMESPACES>
+            <SYMBOL-PROPS><SHORT-NAME>av</SHORT-NAME><SYMBOL>av</SYMBOL></SYMBOL-PROPS>
+            <SYMBOL-PROPS><SHORT-NAME>vp</SHORT-NAME><SYMBOL>vp</SYMBOL></SYMBOL-PROPS>
+            <SYMBOL-PROPS><SHORT-NAME>cm</SHORT-NAME><SYMBOL>cm</SYMBOL></SYMBOL-PROPS>
+          </NAMESPACES>
+          <MAJOR-VERSION>1</MAJOR-VERSION>
+          <MINOR-VERSION>0</MINOR-VERSION>
+          <EVENTS>
+            <VARIABLE-DATA-PROTOTYPE>
+              <SHORT-NAME>DrivingStateEvent</SHORT-NAME>
+              <DESC><L-2 L="EN">Exactly what Planner::compute_plan consumes, less ego speed.</L-2></DESC>
+              <TYPE-TREF DEST="STD-CPP-IMPLEMENTATION-DATA-TYPE">/AvTypes/DataTypes/DrivingState</TYPE-TREF>
+            </VARIABLE-DATA-PROTOTYPE>
+          </EVENTS>
+        </SERVICE-INTERFACE>
+
+        <SERVICE-INTERFACE>
+          <SHORT-NAME>TrajectoryService</SHORT-NAME>
+          <DESC>
+            <L-2 L="EN">Planned trajectory from the Planning AA, consumed by Control.</L-2>
+          </DESC>
+          <NAMESPACES>
+            <SYMBOL-PROPS><SHORT-NAME>av</SHORT-NAME><SYMBOL>av</SYMBOL></SYMBOL-PROPS>
+            <SYMBOL-PROPS><SHORT-NAME>vp</SHORT-NAME><SYMBOL>vp</SYMBOL></SYMBOL-PROPS>
+            <SYMBOL-PROPS><SHORT-NAME>cm</SHORT-NAME><SYMBOL>cm</SYMBOL></SYMBOL-PROPS>
+          </NAMESPACES>
+          <MAJOR-VERSION>1</MAJOR-VERSION>
+          <MINOR-VERSION>0</MINOR-VERSION>
+          <EVENTS>
+            <VARIABLE-DATA-PROTOTYPE>
+              <SHORT-NAME>TrajectoryEvent</SHORT-NAME>
+              <DESC><L-2 L="EN">Acceleration plus the full 20-step steering horizon, so Control has something to follow when planning stops.</L-2></DESC>
+              <TYPE-TREF DEST="STD-CPP-IMPLEMENTATION-DATA-TYPE">/AvTypes/DataTypes/Trajectory</TYPE-TREF>
+            </VARIABLE-DATA-PROTOTYPE>
+          </EVENTS>
+        </SERVICE-INTERFACE>
+
+        <SERVICE-INTERFACE>
+          <SHORT-NAME>VehicleStatusService</SHORT-NAME>
+          <DESC>
+            <L-2 L="EN">Ego vehicle state sensed by the Control AA and consumed by Planning.</L-2>
+          </DESC>
+          <NAMESPACES>
+            <SYMBOL-PROPS><SHORT-NAME>av</SHORT-NAME><SYMBOL>av</SYMBOL></SYMBOL-PROPS>
+            <SYMBOL-PROPS><SHORT-NAME>vp</SHORT-NAME><SYMBOL>vp</SYMBOL></SYMBOL-PROPS>
+            <SYMBOL-PROPS><SHORT-NAME>cm</SHORT-NAME><SYMBOL>cm</SYMBOL></SYMBOL-PROPS>
+          </NAMESPACES>
+          <MAJOR-VERSION>1</MAJOR-VERSION>
+          <MINOR-VERSION>0</MINOR-VERSION>
+          <EVENTS>
+            <VARIABLE-DATA-PROTOTYPE>
+              <SHORT-NAME>SpeedEvent</SHORT-NAME>
+              <DESC><L-2 L="EN">Ego longitudinal speed, m/s.</L-2></DESC>
+              <TYPE-TREF DEST="STD-CPP-IMPLEMENTATION-DATA-TYPE">/AvTypes/DataTypes/VehicleSpeed</TYPE-TREF>
+            </VARIABLE-DATA-PROTOTYPE>
+          </EVENTS>
+        </SERVICE-INTERFACE>
+
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>

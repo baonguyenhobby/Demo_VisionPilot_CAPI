@@ -1,0 +1,7 @@
+build/
+build-ap/
+.build/
+aragen-out/
+*.o
+*.so
+*.log

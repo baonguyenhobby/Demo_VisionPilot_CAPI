@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Application Design — Sensing Adaptive Application.
+
+  The sensor abstraction layer. Today it offers one camera; radar and lidar
+  arrive as additional provided ports on this component, with no change to
+  Perception's process boundary and none at all to Planning or Control. That
+  substitutability is the reason Sensing is its own AA rather than the front of
+  the perception loop.
+
+  Scope, following the reference decomposition: driver plus sensor-specific
+  preprocessing. For the camera that is capture, homography warp to BEV, and
+  resize to the network input — all of it mounting-specific, none of it
+  perception. H / the C matrix belongs to this component.
+
+  What it owns beyond ara::com:
+    - /dev/video0 (or the recorded clip in bench mode), exclusively
+    - the shared-memory frame ring it publishes descriptors into
+
+  Neither is visible in this file. Device access is a deployment concern (see
+  integration/deployment.arxml — user, group and OS resource group), and the
+  ring is a documented deviation described in service_interfaces.arxml.
+
+  InstanceSpecifier built from this file as <executable>/<root>/<port>:
+
+    sensingd/sn_root/PPort_CameraFrame
+
+  Renaming anything below breaks that binding at run time, not at build time —
+  the symptom is service discovery that never completes.
+-->
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://autosar.org/schema/r4.0 AUTOSAR_00049.xsd">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>SensingApp</SHORT-NAME>
+      <ELEMENTS>
+        <PROCESS-DESIGN>
+          <SHORT-NAME>SensingDesign</SHORT-NAME>
+          <EXECUTABLE-REF DEST="EXECUTABLE">/SensingApp/exe/sensingd</EXECUTABLE-REF>
+        </PROCESS-DESIGN>
+      </ELEMENTS>
+      <AR-PACKAGES>
+        <AR-PACKAGE>
+          <SHORT-NAME>exe</SHORT-NAME>
+          <ELEMENTS>
+            <EXECUTABLE>
+              <SHORT-NAME>sensingd</SHORT-NAME>
+              <CATEGORY>APPLICATION_LEVEL</CATEGORY>
+              <LOGGING-BEHAVIOR>USES-LOGGING</LOGGING-BEHAVIOR>
+              <REPORTING-BEHAVIOR>REPORTS-EXECUTION-STATE</REPORTING-BEHAVIOR>
+              <ROOT-SW-COMPONENT-PROTOTYPE>
+                <SHORT-NAME>sn_root</SHORT-NAME>
+                <APPLICATION-TYPE-TREF DEST="ADAPTIVE-APPLICATION-SW-COMPONENT-TYPE">/SensingApp/swc/Sensing</APPLICATION-TYPE-TREF>
+              </ROOT-SW-COMPONENT-PROTOTYPE>
+            </EXECUTABLE>
+          </ELEMENTS>
+        </AR-PACKAGE>
+        <AR-PACKAGE>
+          <SHORT-NAME>swc</SHORT-NAME>
+          <ELEMENTS>
+            <ADAPTIVE-APPLICATION-SW-COMPONENT-TYPE>
+              <SHORT-NAME>Sensing</SHORT-NAME>
+              <DESC>
+                <L-2 L="EN">Sensor abstraction: camera capture and mounting-specific preprocessing. Publishes frames by reference into a shared-memory ring. Radar and lidar would add provided ports here.</L-2>
+              </DESC>
+              <PORTS>
+                <P-PORT-PROTOTYPE>
+                  <SHORT-NAME>PPort_CameraFrame</SHORT-NAME>
+                  <DESC><L-2 L="EN">Frame descriptors out. REPORTS-EXECUTION-STATE matters here: this process must reach kRunning, and so have created the ring, before Perception maps it.</L-2></DESC>
+                  <PROVIDED-INTERFACE-TREF DEST="SERVICE-INTERFACE">/AvServiceInterfaces/CameraFrameService</PROVIDED-INTERFACE-TREF>
+                </P-PORT-PROTOTYPE>
+              </PORTS>
+            </ADAPTIVE-APPLICATION-SW-COMPONENT-TYPE>
+          </ELEMENTS>
+        </AR-PACKAGE>
+      </AR-PACKAGES>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>

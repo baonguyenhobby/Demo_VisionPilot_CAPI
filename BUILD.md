@@ -17,9 +17,13 @@ mistakes.
 ---
 
 ## 0. The Ubuntu 24.04 patch: GCC 13 shall be used instead of GCC 9
+
 ```bash
+#git -C capi         diff > patches/0001-capi-build-on-ubuntu-24.04-gcc-13.patch
+#git -C vision_pilot diff > patches/0002-vision_pilot-enable-ap-interface.patch
 cd ~/Demo_VisionPilot_CAPI
 git -C capi apply ../patches/0001-capi-build-on-ubuntu-24.04-gcc-13.patch
+git -C vision_pilot diff > patches/0002-vision_pilot-enable-ap-interface.patch
 ```
   #sed -i 's/xml_parser\.setElementClassLookup(/xml_parser.set_element_class_lookup(/' \
   #    isoft/ara-gen/generator/common/lxml_preparser.py
@@ -39,6 +43,27 @@ sudo apt install -y build-essential pkg-config cmake make patch tar sed git \
 git lfs install
 
 pip install gitpython json5 jsonpath pyelftools Jinja2 lxml xmltodict pyinstaller psutil
+
+sudo apt update && sudo apt install -y --no-install-recommends \
+    build-essential cmake git wget ca-certificates \
+    libopencv-dev \
+    libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev \
+    gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-nice \
+    libnice-dev libsrtp2-dev libboost-system-dev nlohmann-json3-dev \
+    coinor-libipopt-dev libcppad-dev liblapack-dev libblas-dev
+
+hdr_dir="$(dirname "$(find /usr/include -name IpIpoptApplication.hpp | head -1)")"
+echo "$hdr_dir"
+[ -n "$hdr_dir" ] && sudo ln -sfn "$hdr_dir" /usr/include/coin-or
+ls -ld /usr/include/coin-or	
+	
+mkdir -p ~/ort_extract && cd ~/ort_extract
+wget -O ort.tgz "https://github.com/microsoft/onnxruntime/releases/download/v1.26.0/onnxruntime-linux-x64-1.26.0.tgz"
+tar -xzf ort.tgz
+mv */ ~/onnxruntime          # glob, because the inner dir name isn't guaranteed to match
+cd ~ && rm -rf ~/ort_extract
+ls ~/onnxruntime             # expect include/ and lib/	
 ```
 
 Versions CAPI tested with: gitpython 3.1.50, json5 0.14.0, jsonpath 0.82.2,
@@ -74,6 +99,7 @@ export ARA_GEN_OUT="$HOME/aragen-4aa"
 export ARA_GEN_EXECUTABLE_OUTPUT="$HOME/.isoft/tmp/ara_binout"
 export OVERLAY="$HOME/Demo_VisionPilot_CAPI/av-stack/overlay"
 export PATH="$PATH:$CAPI_SRC_DIR/isoft/ara-gen"
+export ONNXRUNTIME_ROOT="$HOME/onnxruntime"
 EOF
 
 source ~/.bashrc
@@ -84,6 +110,7 @@ chmod +x $SDK_UTILS
 
 ```bash
 cd ~/Demo_VisionPilot_CAPI
+rm -rf "$CAPI_BUILD_DIR"
 echo "gitdir: $HOME/Demo_VisionPilot_CAPI/.git/modules/capi" > capi/.git
 git -C capi rev-parse --short HEAD      # 112916a — proves the fix is sound
 
@@ -91,10 +118,13 @@ ${SDK_UTILS} -d build -o "${CAPI_BUILD_DIR}" -v 2608 "apall#${CAPI_SRC_DIR}"
 ```
 
 ```bash
-${SDK_UTILS} -d pack -o "${SDK_OUTPUT_DIR}" "${CAPI_BUILD_DIR}"
-ls -l "${SDK_OUTPUT_DIR}"/SDK-*.run
+rm -rf "$CAPI_BUILD_DIR/tmp-sdk-packager" "$SDK_OUTPUT_DIR"
+$SDK_UTILS -d pack -o "$SDK_OUTPUT_DIR" "$CAPI_BUILD_DIR"
+ls -l "$SDK_OUTPUT_DIR"/SDK-*.run          # timestamp must be NOW
 
-"${SDK_OUTPUT_DIR}"/SDK-*.run "${SDK_INST_DIR}"
+rm -rf "$SDK_INST_DIR"
+"$SDK_OUTPUT_DIR"/SDK-*.run "$SDK_INST_DIR"
+grep -n "uint64" "$ARA_SYSROOT"/ara/framework/1.0.0/include/isoft/e2e/Platform_Types.h
 ```
 
 ```bash
@@ -108,140 +138,91 @@ FW="$ARA_SYSROOT/ara/framework/1.0.0"
 grep -rh "add_library(" $FW/lib/cmake/{ara-core,ara-com,ara-log,ara-exec-execution-client,ara-phm-client,ara-com-nsomeip}/ | sort -u
 ```
 
-
-`apall#<path>` is `NAME#URL` — package `apall` taken from a local path rather
-than downloaded. `-v 2608` is just the build version string (defaults to today's
-date). `-b` selects the build type, default `Debug`. Add `-s` if disk is tight.
-
 ## 4. Generate from the model
 
 ```bash
-cd <this overlay>
-aragen -o ~/aragen-4aa  av-stack/model/  capi/isoft/arxmls/models/
+cd ~/Demo_VisionPilot_CAPI
+
+# 4a. manifests
+aragen -o "$ARA_GEN_OUT"  av-stack/model/  capi/isoft/arxmls/models/
+
+# 4b. headers + net-bindings
+aragen -e /SensingApp/exe/sensingd,/PerceptionApp/exe/perceptiond,/PlanningApp/exe/planningd,/ControlApp/exe/controld \
+       -o "$ARA_GEN_OUT"  av-stack/model/  capi/isoft/arxmls/models/
 ```
 
-CAPI's own `isoft/arxmls/models/` must be on the input list — the model
-references `Machine1`, its connector, its resource group, `ProcessStateMachine`
-and `/AUTOSAR/StdTypes/*` from there.
-
-Useful without generating anything:
-
+#Note: if it throws an error about Element '{http://autosar.org/schema/r4.0}ARRAY-SIZE' at /av-stack/model/data_types.arxml
 ```bash
-aragen --list-processes  model/ ${CAPI_SRC_DIR}/isoft/arxmls/models/   # expect /AvDeployment/*
-aragen --list-machines   model/ ${CAPI_SRC_DIR}/isoft/arxmls/models/
-aragen -e /VisionPilotApp/exe/visionpilotd -o /tmp/out  model/ ...     # one executable only
+cd ~/Demo_VisionPilot_CAPI/av-stack/model
+python3 - <<'EOF'
+p = 'data_types.arxml'
+s = open(p).read()
+line = '              <ARRAY-SIZE>20</ARRAY-SIZE>\n'
+cat  = '              <CATEGORY>ARRAY</CATEGORY>\n'
+assert s.count(line) == 1, "ARRAY-SIZE not found exactly once"
+assert s.count(cat)  == 1, "CATEGORY>ARRAY not found exactly once"
+s = s.replace(line, '').replace(cat, cat + line, 1)
+open(p, 'w').write(s)
+EOF
+sed -n '282,292p' data_types.arxml
+``` 
+
+#Check it produced what the build needs:
+```bash
+ls "$ARA_GEN_OUT"/processes/           # 4 dirs
+ls "$ARA_GEN_OUT"/includes/av/vp/cm/   # the service headers
+ls "$ARA_GEN_OUT"/net-bindings/        # av/ + one dir per executable
 ```
 
-### The output layout matters
-
+#Inspection only, generates nothing:
+```bash
+aragen --list-processes  av-stack/model/  capi/isoft/arxmls/models/   # expect /AvDeployment/*
+aragen --list-machines   av-stack/model/  capi/isoft/arxmls/models/
 ```
-/tmp/aragen-out/
-  includes/       av/vp/cm/*_proxy.h, *_skeleton.h, impl_type_*.h   <- you #include these
-  net-bindings/   av/vp/cm/nsomeip/*.h  AND  **/*.cpp               <- these must be COMPILED
-  processes/      <process>_manifest.json, _nsomeip.json, ...       <- EM/com read these
-  machines/       machine configuration
-```
-
-Both `includes/` and `net-bindings/` are include roots. The `.cpp` files under
-`net-bindings/` define `Initialize<Service>()` / `Deinitialize<Service>()`, which
-`ara::core::Initialize()` calls to register each service with its binding. **Omit
-them and the application links, starts, and silently never offers or finds
-anything.** The overlay's `ap_interface/CMakeLists.txt` globs and compiles them,
-and defines `HAS_NSOMEIP_BINDING` to select the matching branch in the generated
-`runtime.cpp`.
 
 ## 5. Build VisionPilot — standalone, against the installed SDK
-
-**VisionPilot is built separately from CAPI and is not a CAPI package.** It is
-an ordinary CMake project that happens to `find_package` a handful of `ara::`
-targets. Two reasons this split is deliberate rather than expedient:
-
-- VisionPilot needs ONNX Runtime, CUDA/TensorRT and OpenCV. The SDK's project
-  wrapper models none of them, and teaching it to would drag the whole
-  perception toolchain inside the platform build for nothing.
-- The coupling is genuinely narrow: six `find_package` calls in
-  `ap_interface/CMakeLists.txt`, plus the generated sources under
-  `net-bindings/`. No other module in the tree knows CAPI exists.
-
-So the SDK is a **dependency to be located**, exactly like ONNX Runtime. Find
-where it put its CMake package configs:
-
 ```bash
-find ${SDK_INST_DIR} -name 'ara-core*onfig.cmake' -printf '%h\n' | sort -u
+./av-stack/scripts/apply-overlay.sh
 ```
 
-then point the build at it:
-
 ```bash
-cmake -DONNXRUNTIME_ROOT=/path/to/onnxruntime \
-      -DENABLE_AP_INTERFACE=ON \
-      -DARA_GEN_OUTPUT=/tmp/aragen-out \
-      -DCMAKE_PREFIX_PATH="${SDK_INST_DIR}" \
-      ..
-make
+cd ~/Demo_VisionPilot_CAPI/vision_pilot/VisionPilot
+rm -rf build && mkdir build && cd build
+cmake -DENABLE_AP_INTERFACE=ON -DENABLE_ROS2_INTERFACE=OFF -DGPU=OFF \
+      -DARA_GEN_OUTPUT="$ARA_GEN_OUT" \
+      -DCMAKE_PREFIX_PATH="$ARA_SYSROOT/ara/framework/1.0.0;$ARA_SYSROOT/usr" \
+      -DONNXRUNTIME_ROOT="$HOME/onnxruntime" \
+      .. >/dev/null && make vp_control -j1 2>&1 | grep -E "error|Error" | head -30
 ```
 
-Pass the aragen output **root**, not `includes/`. (The CMake accepts either, but
-the root is the documented form.)
+# In case it throws compilation errors, use this command to see details: 
+  ```bash
+  cd ~/Demo_VisionPilot_CAPI/vision_pilot/VisionPilot/build
+  make vp_planning vp_sensing vp_perception vp_control -j$(nproc) 2>&1 | grep -E "error:" | head -20
+  ```
+# In case it throws linking errors e.g. collect2: error: ld returned 1 exit status, use this command to see details:   
+  ```bash
+  cd ~/Demo_VisionPilot_CAPI/vision_pilot/VisionPilot/build
+  make vp_planning vp_sensing vp_perception vp_control -j$(nproc) 2>&1 | grep -E "undefined reference|cannot find -l|DSO missing" | sed 's/.*undefined reference to //' | sort -u | head -40
+  ```
+Phase	    Signature
+compile	    path/file.cpp:120:15: error: ...
+link	    undefined reference to, cannot find -lfoo, DSO missing from command line
+link        (always last)	collect2: error: ld returned 1 exit status
+make        itself	make[2]: *** [...] Error 1
 
-If `find_package(ara-core REQUIRED)` still fails, the configs sit deeper than
-`CMAKE_PREFIX_PATH`'s search rules reach — pass the exact directory as
-`-Dara-core_DIR=<dir>` (and likewise for `ara-com`, `ara-log`,
-`ara-exec-execution-client`, `ara-phm-client`, `ara-com-nsomeip`) rather than
-moving files around inside the SDK.
-
-### Wiring the four AAs into the tree
-
-They are four executables in VisionPilot's own build tree, not four projects.
-They share `config` / `logging` / `common`, each links a different subset of the
-existing module libraries, and this tree already knows how to find ONNX Runtime,
-OpenCV and CUDA. What is *standalone* is the relationship to CAPI, not the
-applications' relationship to each other.
-
-Top-level `CMakeLists.txt`:
-
-```cmake
-if(ENABLE_AP_INTERFACE)
-    list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
-    include(AraApplication)
-    ara_find_capi()          # find_package the six ara:: packages -> ap::capi
-    ara_generated_common()   # net-bindings/av/vp/cm/**.cpp -> ap_generated_common
-    add_subdirectory(modules/middleware_interfaces/ap_interface)   # ap_runtime
-    add_subdirectory(apps)   # sensingd, perceptiond, planningd, controld
-endif()
+#Note: if we changed av-stack to solve compilation/linking errors, trigger:
+```bash
+cd ~/Demo_VisionPilot_CAPI && ./av-stack/scripts/apply-overlay.sh >/dev/null
+cd vision_pilot/VisionPilot/build
+make vp_sensing vp_perception vp_planning vp_control -j$(nproc) 2>&1 | grep -E "undefined reference|cannot find -l|error:|Error [0-9]" | sort -u | head -30
+ls -l sensingd perceptiond planningd controld
 ```
 
-Then:
-
 ```bash
-make -j$(nproc)
-make ara-install        # copies all four into ARA_GEN_EXECUTABLE_OUTPUT
-```
-
-`ara-install` is the standalone equivalent of `ab -i`, and §6 explains why it is
-not optional.
-
-Two things `cmake/AraApplication.cmake` gets right that a naive setup does not:
-
-- **`OUTPUT_NAME` per executable.** `add_ara_executable(... ARA_NAME sensingd)`
-  makes the binary's filename match the model's `EXECUTABLE` short-name. The
-  configurator resolves `/SensingApp/exe/sensingd` by matching that name against
-  filenames it finds; a target called `vp_sensing` is never matched.
-- **Per-executable binding sources.** ara-gen emits two kinds of `.cpp` under
-  `net-bindings/`: shared serialisation glue under `av/vp/cm/`, and
-  `Initialize<Service>()` / `Deinitialize<Service>()` under a directory per
-  executable. Only the first belongs in a shared library. A
-  `GLOB_RECURSE net-bindings/*.cpp` — which is what the single-binary version of
-  this overlay did — links all four executables' `Initialize()` definitions into
-  every process and registers services a process has no ports for. Each
-  executable compiles only its own.
-
-The per-executable directory name is chosen by ara-gen and is not guaranteed to
-equal the executable name, so check once and fix the four `BINDING_DIR` lines in
-`apps/CMakeLists.txt` if they differ:
-
-```bash
-ls ${ARA_GEN_OUTPUT}/net-bindings/
+cd vision_pilot/VisionPilot/build
+make ara-install
+ls -l "$ARA_GEN_EXECUTABLE_OUTPUT"
 ```
 
 ### Runtime library resolution — the part that bites

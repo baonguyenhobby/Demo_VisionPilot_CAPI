@@ -1,5 +1,8 @@
 # Building CAPI, and generating this model
 
+git clone --recursive https://github.com/baonguyenhobby/Demo_VisionPilot_CAPI.git
+git submodule update --init --recursive
+
 Two separate toolchains, often confused:
 
 | | What it is | Language | Needed for |
@@ -13,76 +16,19 @@ mistakes.
 
 ---
 
-## 0. The Ubuntu 24.04 question
-
-`docs/building_and_running_CAPI.rst` states **Ubuntu 20.04 / Python 3.8**, and
-`.devcontainer/Dockerfile` is `mcr.microsoft.com/devcontainers/base:ubuntu20.04`.
-That is stricter than reality:
-
-- **`sdk-utils` has no version guard.** `src/utils/misc.py:get_os_version()` only
-  reads `/etc/os-release` to name the SDK file. On 24.04 you get
-  `SDK-1.0.0.<ver>-x86_64-ubuntu24.04-native-Debug.run`. Nothing refuses to run.
-- **The `lxml==4.9.1` pin is one deprecated alias.** On modern lxml, `ara-gen`
-  dies with `'lxml.etree.XMLParser' object has no attribute
-  'setElementClassLookup'`. There is exactly **one** call site —
-  `isoft/ara-gen/generator/common/lxml_preparser.py:55` — and the repo's other
-  two parsers already use the modern spelling. Change it to
-  `set_element_class_lookup` and `ara-gen` runs on lxml 6.x / Python 3.11+:
-
-  ```bash
-  sed -i 's/xml_parser\.setElementClassLookup(/xml_parser.set_element_class_lookup(/' \
-      isoft/ara-gen/generator/common/lxml_preparser.py
-  ```
-
-  **Verified**: with only that change, `ara-gen` parses the full CAPI model and
-  generates this project's code and manifests without error.
-
-### The C++ build on 24.04 — verified
-
-CAPI **does** compile on Ubuntu 24.04 / GCC 13.3, with one further change.
-
-All twelve third-party dependencies (OpenSSL 3.5.1, Fast-DDS 3.4.0, Eigen 5.0.1,
-libseccomp, zlib, asio, tinyxml2, rapidjson, Fast-CDR, foonathan-memory,
-concurrentqueue, googletest) build unmodified. CAPI's own code — the `apall`
-package — fails only on **warnings promoted to errors**, never on real compile
-errors. Two classes appear, both introduced or widened after GCC 9:
-
-| Warning | Where | Why it is safe to relax |
-|---|---|---|
-| `-Wpessimizing-move` | ~190 sites across `per`, `ucm`, `idsm`, `log` | Missed-optimization only: `std::move` on a temporary blocks copy elision. Cannot change behaviour. |
-| `-Wc++20-compat` | `per/.../isoft_data_type.h:65` — `char8_t` used as an identifier | Legal C++17, and CAPI compiles as C++17. Flags a future migration, not a present bug. |
-
-`-Werror` is enabled in only four modules — `log`, `per`, `ucm`, `idsm`. The
-others (`com`, `core`, `diag`, `crypto`) already have theirs commented out
-upstream, so this is a road the maintainers have been going down themselves.
-Relax the four:
-
+## 0. The Ubuntu 24.04 patch: GCC 13 shall be used instead of GCC 9
 ```bash
-for m in log per ucm idsm; do
-  sed -i 's/^\(\s*\)add_compile_options(-Werror[^)]*)/\1# add_compile_options(-Werror)  # relaxed: GCC 13 warning classes/' \
-      $m/CMakeLists.txt
-done
+cd ~/Demo_VisionPilot_CAPI
+git -C capi apply ../patches/0001-capi-build-on-ubuntu-24.04-gcc-13.patch
 ```
-
-Warnings still print; they just stop halting the build. Suppressing individual
-classes with `-Wno-error=<class>` works too, but turns into whack-a-mole — two
-classes surfaced one after the other, and the codebase was plainly never
-compiled with GCC 13.
-
-**When a build fails, `sdk-utils` hides the reason.** It reports only that
-`cmake --build .build -j 8` returned non-zero. Get the real diagnostic by
-re-running the compile directly in its work tree — incremental, so it is quick:
-
-```bash
-cd ${CAPI_BUILD_DIR}/.build/apall
-cmake --build .build -j1 2>&1 | tee /tmp/capi-build.log | tail -60
-```
-
-`-j1` keeps the first failure at the end instead of buried in parallel output.
-Patch `CMakeLists.txt` in **both** `${CAPI_SRC_DIR}` and this copy —
-`sdk-utils` copies the source in, but the compiled objects live here, so fixing
-both lets you resume rather than restart.
-
+  #sed -i 's/xml_parser\.setElementClassLookup(/xml_parser.set_element_class_lookup(/' \
+  #    isoft/ara-gen/generator/common/lxml_preparser.py
+  
+  #Note: comment out add_compile_options(-Werror) to relaxed GCC 13 warning classes
+  #for m in log per ucm idsm; do
+  #  sed -i 's/^\(\s*\)add_compile_options(-Werror[^)]*)/\1# add_compile_options(-Werror)  # relaxed: GCC 13 warning classes/' \
+  #    $m/CMakeLists.txt
+  #done
 ---
 
 ## 1. Dependencies
@@ -115,21 +61,53 @@ needs network access:
 ## 2. Environment
 
 ```bash
-export CAPI_SRC_DIR="$HOME/capi"                 # wherever you cloned it
-export SDK_UTILS="${CAPI_SRC_DIR}/isoft/sdk-utils/bin/sdk-utils.py"
-export CAPI_BUILD_DIR="${CAPI_SRC_DIR}/build"
-export SDK_OUTPUT_DIR="${CAPI_SRC_DIR}/build/sdk"
-export SDK_INST_DIR="${HOME}/capi/sdk-native"
-export ARA_SYSROOT="${HOME}/capi/ara-sysroot"
+cat >> ~/.bashrc <<'EOF'
+
+# --- CAPI / VisionPilot AP overlay ---
+export CAPI_SRC_DIR="$HOME/Demo_VisionPilot_CAPI/capi"
+export SDK_UTILS="$CAPI_SRC_DIR/isoft/sdk-utils/bin/sdk-utils.py"
+export CAPI_BUILD_DIR="$HOME/capi-build"
+export SDK_OUTPUT_DIR="$HOME/capi-build/sdk"
+export SDK_INST_DIR="$HOME/capi-sdk"
+export ARA_SYSROOT="$SDK_INST_DIR/ara-sysroot"
+export ARA_GEN_OUT="$HOME/aragen-4aa"
+export ARA_GEN_EXECUTABLE_OUTPUT="$HOME/.isoft/tmp/ara_binout"
+export OVERLAY="$HOME/Demo_VisionPilot_CAPI/av-stack/overlay"
+export PATH="$PATH:$CAPI_SRC_DIR/isoft/ara-gen"
+EOF
+
+source ~/.bashrc
+chmod +x $SDK_UTILS
 ```
 
 ## 3. Build the SDK
 
 ```bash
-${SDK_UTILS} build -o "${CAPI_BUILD_DIR}" -v "2608" "apall#${CAPI_SRC_DIR}"
-${SDK_UTILS} pack  -o "${SDK_OUTPUT_DIR}" "${CAPI_BUILD_DIR}"
-${SDK_OUTPUT_DIR}/SDK-*.run "${SDK_INST_DIR}"
+cd ~/Demo_VisionPilot_CAPI
+echo "gitdir: $HOME/Demo_VisionPilot_CAPI/.git/modules/capi" > capi/.git
+git -C capi rev-parse --short HEAD      # 112916a — proves the fix is sound
+
+${SDK_UTILS} -d build -o "${CAPI_BUILD_DIR}" -v 2608 "apall#${CAPI_SRC_DIR}"
 ```
+
+```bash
+${SDK_UTILS} -d pack -o "${SDK_OUTPUT_DIR}" "${CAPI_BUILD_DIR}"
+ls -l "${SDK_OUTPUT_DIR}"/SDK-*.run
+
+"${SDK_OUTPUT_DIR}"/SDK-*.run "${SDK_INST_DIR}"
+```
+
+```bash
+grep -rIl "${SDK_INST_DIR}" ${SDK_INST_DIR} | head
+find ${SDK_INST_DIR} -name "*onfig.cmake" | sed "s|${SDK_INST_DIR}||" | sort
+ls $ARA_SYSROOT/usr/lib | head -40
+```
+
+```bash
+FW="$ARA_SYSROOT/ara/framework/1.0.0"
+grep -rh "add_library(" $FW/lib/cmake/{ara-core,ara-com,ara-log,ara-exec-execution-client,ara-phm-client,ara-com-nsomeip}/ | sort -u
+```
+
 
 `apall#<path>` is `NAME#URL` — package `apall` taken from a local path rather
 than downloaded. `-v 2608` is just the build version string (defaults to today's

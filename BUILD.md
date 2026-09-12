@@ -360,6 +360,41 @@ grep -a -E "\[INFO\]  ctrl:" /tmp/machine.log | tail -4
 `planningd` gone, the other three running, `age` climbing past 200 ms, and
 Control at `tyre=0.0000 accel=-4.000` once the 20-step horizon is exhausted.
 
+### 9. Testing Driving with visualization
+# 1. enable the overlay AND the WebRTC sink (both flags are required)
+sudo sed -i 's|^visualization_on .*|visualization_on = true|; s|^webrtc_on .*|webrtc_on = true|' \
+    /usr/share/visionpilot/config/vision_pilot.conf
+grep -nE "^(visualization_on|webrtc_on|webrtc_port)" /usr/share/visionpilot/config/vision_pilot.conf
+
+# 2. the overlay's icons — a copy, not a grep. Only the absolute path is reachable under EM.
+sudo mkdir -p /usr/share/visionpilot/assets
+sudo cp -r ~/Demo_VisionPilot_CAPI/vision_pilot/VisionPilot/assets/icons \
+           /usr/share/visionpilot/assets/
+ls /usr/share/visionpilot/assets/icons     # brake.png collision.png right_lane_departure.png
+
+# 3. GStreamer plugins the pipeline needs at run time
+gst-inspect-1.0 vp8enc    >/dev/null 2>&1 && echo "vp8enc ok"    || echo "vp8enc MISSING    → gstreamer1.0-plugins-good"
+gst-inspect-1.0 webrtcbin >/dev/null 2>&1 && echo "webrtcbin ok" || echo "webrtcbin MISSING → gstreamer1.0-plugins-bad"
+
+# 4. restart the function group so perceptiond re-reads the config
+sudo -E "$ARA_SYSROOT/run.sh" -c AvPilotFG.Off
+sudo -E "$ARA_SYSROOT/run.sh" -c AvPilotFG.Init
+sleep 10
+grep -a -E "init (ok|FAILED)" /tmp/machine.log | tail -4     # want four 'ok'
+
+sudo -E "$ARA_SYSROOT/run.sh" -c AvPilotFG.Driving
+sleep 25
+sudo -E "$ARA_SYSROOT/run.sh" -C AvPilotFG                   # want AvPilotFG.Driving
+for p in sensingd perceptiond planningd controld; do printf "%-12s %s\n" "$p" "$(pgrep -x $p || echo -)"; done
+
+# 5. is the sink up?
+sudo ss -ltnp | grep ':8080' || echo "nothing on 8080"
+grep -a "WebRTCStreamer" /tmp/machine.log | tail -10
+grep -a "perceptiond: running" /tmp/machine.log | tail -1
+
+# 6. On Windows host: open it — the HTML page and the WebSocket signalling share the one port
+#    http://localhost:8080/     (the server binds 0.0.0.0)
+
 #In case errors, look for details:
 ```bash
 pgrep -x sensingd; pgrep -x perceptiond; pgrep -x planningd; pgrep -x controld

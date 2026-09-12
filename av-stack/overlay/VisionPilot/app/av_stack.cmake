@@ -44,6 +44,7 @@
 add_ara_executable(
         TARGET      vp_sensing
         ARA_NAME    sensingd
+        ARA_FQN     /SensingApp/exe/sensingd
         BINDING_DIR sensing
         SOURCES     sensing/main.cpp
                     sensing/frame_ring_writer.cpp
@@ -67,6 +68,7 @@ add_ara_executable(
 add_ara_executable(
         TARGET      vp_perception
         ARA_NAME    perceptiond
+        ARA_FQN     /PerceptionApp/exe/perceptiond
         BINDING_DIR perception
         SOURCES     perception/main.cpp
                     perception/frame_ring_reader.cpp
@@ -84,6 +86,7 @@ add_ara_executable(
 add_ara_executable(
         TARGET      vp_planning
         ARA_NAME    planningd
+        ARA_FQN     /PlanningApp/exe/planningd
         BINDING_DIR planning
         SOURCES     planning/main.cpp
         LIBS        ap_runtime config logging common
@@ -107,6 +110,7 @@ add_ara_executable(
 add_ara_executable(
         TARGET      vp_control
         ARA_NAME    controld
+        ARA_FQN     /ControlApp/exe/controld
         BINDING_DIR control
         SOURCES     control/main.cpp
         LIBS        ap_runtime config logging common

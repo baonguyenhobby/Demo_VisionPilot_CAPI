@@ -83,10 +83,11 @@ function(ara_find_capi)
     # name them plainly -- `crypto` rather than an absolute path -- so without
     # this the link fails with "cannot find -lcrypto" while the file sits right
     # there. Derived from ara-core_DIR so it needs no environment variable.
-    set(_sysroot "$ENV{ARA_SYSROOT}")
-    if(NOT _sysroot)
-        get_filename_component(_sysroot "${ara-core_DIR}/../../../../../.." ABSOLUTE)
-    endif()
+    # Derived from where find_package actually found ara-core, NOT from
+    # ARA_SYSROOT: that variable names the MACHINE root (what config.sh builds
+    # and run.sh boots), which is a different directory from the SDK sysroot.
+    # Conflating the two makes configMachine try to copy the SDK onto itself.
+    get_filename_component(_sysroot "${ara-core_DIR}/../../../../../.." ABSOLUTE)
     if(NOT EXISTS "${_sysroot}/usr/lib")
         message(FATAL_ERROR
             "Could not locate the CAPI sysroot (looked at '${_sysroot}'). "
@@ -94,11 +95,31 @@ function(ara_find_capi)
     endif()
     target_link_directories(ap_capi INTERFACE "${_sysroot}/usr/lib")
 
+    # The SDK's own name, e.g. SDK-1.0.0.2608-x86_64-ubuntu24.04-native-Debug.
+    # configMachine resolves an executable FQN to
+    #   <binout>/<AppPackage>/exe/<exeName>/<SDK_NAME>/<exeName>
+    # so ara-install has to reproduce that path exactly. Read rather than
+    # hard-coded: the string changes with every -v you pass to sdk-utils.
+    file(READ "${_sysroot}/.release.json" _release_json)
+    string(REGEX MATCH "\"SDK_NAME\"[ \t]*:[ \t]*\"([^\"]+)\"" _m "${_release_json}")
+    if(NOT CMAKE_MATCH_1)
+        message(FATAL_ERROR "Could not read SDK_NAME from ${_sysroot}/.release.json")
+    endif()
+    set(ARA_SDK_NAME "${CMAKE_MATCH_1}" CACHE STRING "Installed CAPI SDK name" FORCE)
+    message(STATUS "CAPI SDK: ${ARA_SDK_NAME}")
+
     # RPATH for the same two directories. EM starts these binaries without your
     # shell's LD_LIBRARY_PATH; a missing .so then shows up as EM reporting the
     # process failed to start with no application log at all, because it never
     # reached main().
+    # --disable-new-dtags emits DT_RPATH rather than DT_RUNPATH. The difference
+    # is decisive here: DT_RUNPATH applies ONLY to the binary's own direct
+    # dependencies, while DT_RPATH is inherited down the whole chain. The SDK's
+    # libraries carry no runpath of their own, so libara-com.so's own
+    # dependencies (libisoft_manifestreader.so.1 and friends) are unresolvable
+    # under DT_RUNPATH even though the path is right there in the binary.
     target_link_options(ap_capi INTERFACE
+            "-Wl,--disable-new-dtags"
             "-Wl,-rpath,${_sysroot}/usr/lib"
             "-Wl,-rpath,${_sysroot}/ara/framework/1.0.0/lib")
 
@@ -187,8 +208,8 @@ endfunction()
 #     ls ${ARA_GEN_OUTPUT}/net-bindings/
 # ---------------------------------------------------------------------------
 function(add_ara_executable)
-    cmake_parse_arguments(A "" "TARGET;ARA_NAME;BINDING_DIR" "SOURCES;LIBS" ${ARGN})
-    if(NOT A_TARGET OR NOT A_ARA_NAME OR NOT A_BINDING_DIR)
+    cmake_parse_arguments(A "" "TARGET;ARA_NAME;ARA_FQN;BINDING_DIR" "SOURCES;LIBS" ${ARGN})
+    if(NOT A_TARGET OR NOT A_ARA_NAME OR NOT A_ARA_FQN OR NOT A_BINDING_DIR)
         message(FATAL_ERROR "add_ara_executable: TARGET, ARA_NAME and BINDING_DIR are required")
     endif()
     _ara_gen_root(_root)
@@ -213,13 +234,23 @@ function(add_ara_executable)
 
     # The standalone `ab -i`. Depend on the aggregate target `ara-install` to
     # place every executable where config.sh will find it.
+    # <binout>/<AppPackage>/exe/<exeName>/<SDK_NAME>/<exeName> -- the layout
+    # `ab -i` produces and configMachine searches. A flat copy is NOT found, and
+    # the failure reads "can't find executablePath", which points at the model
+    # rather than at the install.
+    string(REGEX REPLACE "^/([^/]+)/.*$" "\\1" _pkg "${A_ARA_FQN}")
+    if(_pkg STREQUAL A_ARA_FQN)
+        message(FATAL_ERROR "ARA_FQN must look like /SensingApp/exe/sensingd, got '${A_ARA_FQN}'")
+    endif()
+    set(_dest "${ARA_GEN_EXECUTABLE_OUTPUT}/${_pkg}/exe/${A_ARA_NAME}/${ARA_SDK_NAME}")
+
     add_custom_target(ara-install-${A_TARGET}
-            COMMAND ${CMAKE_COMMAND} -E make_directory "${ARA_GEN_EXECUTABLE_OUTPUT}"
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${_dest}"
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
                     "$<TARGET_FILE:${A_TARGET}>"
-                    "${ARA_GEN_EXECUTABLE_OUTPUT}/${A_ARA_NAME}"
+                    "${_dest}/${A_ARA_NAME}"
             DEPENDS ${A_TARGET}
-            COMMENT "ara-install: ${A_ARA_NAME} -> ${ARA_GEN_EXECUTABLE_OUTPUT}")
+            COMMENT "ara-install: ${A_ARA_NAME} -> ${_dest}")
 
     if(NOT TARGET ara-install)
         add_custom_target(ara-install)

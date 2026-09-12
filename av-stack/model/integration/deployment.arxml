@@ -48,6 +48,26 @@
           <SHORT-NAME>mappingSet</SHORT-NAME>
           <PROCESS-TO-MACHINE-MAPPINGS>
             <PROCESS-TO-MACHINE-MAPPING>
+              <SHORT-NAME>SensingInitMapping</SHORT-NAME>
+              <MACHINE-REF DEST="MACHINE">/ISOFT/Development/Machine1</MACHINE-REF>
+              <PROCESS-REF DEST="PROCESS">/AvDeployment/sensing_init_process</PROCESS-REF>
+            </PROCESS-TO-MACHINE-MAPPING>
+            <PROCESS-TO-MACHINE-MAPPING>
+              <SHORT-NAME>PerceptionInitMapping</SHORT-NAME>
+              <MACHINE-REF DEST="MACHINE">/ISOFT/Development/Machine1</MACHINE-REF>
+              <PROCESS-REF DEST="PROCESS">/AvDeployment/perception_init_process</PROCESS-REF>
+            </PROCESS-TO-MACHINE-MAPPING>
+            <PROCESS-TO-MACHINE-MAPPING>
+              <SHORT-NAME>PlanningInitMapping</SHORT-NAME>
+              <MACHINE-REF DEST="MACHINE">/ISOFT/Development/Machine1</MACHINE-REF>
+              <PROCESS-REF DEST="PROCESS">/AvDeployment/planning_init_process</PROCESS-REF>
+            </PROCESS-TO-MACHINE-MAPPING>
+            <PROCESS-TO-MACHINE-MAPPING>
+              <SHORT-NAME>ControlInitMapping</SHORT-NAME>
+              <MACHINE-REF DEST="MACHINE">/ISOFT/Development/Machine1</MACHINE-REF>
+              <PROCESS-REF DEST="PROCESS">/AvDeployment/control_init_process</PROCESS-REF>
+            </PROCESS-TO-MACHINE-MAPPING>
+            <PROCESS-TO-MACHINE-MAPPING>
               <SHORT-NAME>SensingMapping</SHORT-NAME>
               <MACHINE-REF DEST="MACHINE">/ISOFT/Development/Machine1</MACHINE-REF>
               <PROCESS-REF DEST="PROCESS">/AvDeployment/sensing_process</PROCESS-REF>
@@ -203,146 +223,6 @@
         </SOMEIP-SERVICE-INSTANCE-TO-MACHINE-MAPPING>
 
         <!-- Sensing: Driving + Degraded -->
-        <PROCESS>
-          <SHORT-NAME>sensing_process</SHORT-NAME>
-          <DESIGN-REF DEST="PROCESS-DESIGN">/SensingApp/SensingDesign</DESIGN-REF>
-          <EXECUTABLE-REF DEST="EXECUTABLE">/SensingApp/exe/sensingd</EXECUTABLE-REF>
-          <PROCESS-STATE-MACHINE>
-            <SHORT-NAME>processStateMachine</SHORT-NAME>
-            <TYPE-TREF DEST="MODE-DECLARATION-GROUP">/ISOFT/ProcessModes/ProcessStateMachine</TYPE-TREF>
-          </PROCESS-STATE-MACHINE>
-          <STATE-DEPENDENT-STARTUP-CONFIGS>
-            <STATE-DEPENDENT-STARTUP-CONFIG>
-              <FUNCTION-GROUP-STATE-IREFS>
-                <FUNCTION-GROUP-STATE-IREF>
-                  <CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF DEST="MODE-DECLARATION-GROUP-PROTOTYPE">/FunctionGroups/AvPilot/FunctionGroupsSet/AvPilotFG</CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF>
-                  <TARGET-MODE-DECLARATION-REF DEST="MODE-DECLARATION">/FunctionGroups/AvPilot/AvPilotFG/Driving</TARGET-MODE-DECLARATION-REF>
-                </FUNCTION-GROUP-STATE-IREF>
-                <FUNCTION-GROUP-STATE-IREF>
-                  <CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF DEST="MODE-DECLARATION-GROUP-PROTOTYPE">/FunctionGroups/AvPilot/FunctionGroupsSet/AvPilotFG</CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF>
-                  <TARGET-MODE-DECLARATION-REF DEST="MODE-DECLARATION">/FunctionGroups/AvPilot/AvPilotFG/Degraded</TARGET-MODE-DECLARATION-REF>
-                </FUNCTION-GROUP-STATE-IREF>
-              </FUNCTION-GROUP-STATE-IREFS>
-              <RESOURCE-GROUP-REF DEST="RESOURCE-GROUP">/ISOFT/Development/Machine1/OS/DefaultResourceGroup</RESOURCE-GROUP-REF>
-              <STARTUP-CONFIG-REF DEST="STARTUP-CONFIG">/AvDeployment/startup_set/sensing_config</STARTUP-CONFIG-REF>
-            </STATE-DEPENDENT-STARTUP-CONFIG>
-          </STATE-DEPENDENT-STARTUP-CONFIGS>
-        </PROCESS>
-
-        <!-- Perception: Driving + Degraded -->
-        <PROCESS>
-          <SHORT-NAME>perception_process</SHORT-NAME>
-          <DESIGN-REF DEST="PROCESS-DESIGN">/PerceptionApp/PerceptionDesign</DESIGN-REF>
-          <EXECUTABLE-REF DEST="EXECUTABLE">/PerceptionApp/exe/perceptiond</EXECUTABLE-REF>
-          <PROCESS-STATE-MACHINE>
-            <SHORT-NAME>processStateMachine</SHORT-NAME>
-            <TYPE-TREF DEST="MODE-DECLARATION-GROUP">/ISOFT/ProcessModes/ProcessStateMachine</TYPE-TREF>
-          </PROCESS-STATE-MACHINE>
-          <STATE-DEPENDENT-STARTUP-CONFIGS>
-            <STATE-DEPENDENT-STARTUP-CONFIG>
-              <FUNCTION-GROUP-STATE-IREFS>
-                <FUNCTION-GROUP-STATE-IREF>
-                  <CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF DEST="MODE-DECLARATION-GROUP-PROTOTYPE">/FunctionGroups/AvPilot/FunctionGroupsSet/AvPilotFG</CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF>
-                  <TARGET-MODE-DECLARATION-REF DEST="MODE-DECLARATION">/FunctionGroups/AvPilot/AvPilotFG/Driving</TARGET-MODE-DECLARATION-REF>
-                </FUNCTION-GROUP-STATE-IREF>
-                <FUNCTION-GROUP-STATE-IREF>
-                  <CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF DEST="MODE-DECLARATION-GROUP-PROTOTYPE">/FunctionGroups/AvPilot/FunctionGroupsSet/AvPilotFG</CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF>
-                  <TARGET-MODE-DECLARATION-REF DEST="MODE-DECLARATION">/FunctionGroups/AvPilot/AvPilotFG/Degraded</TARGET-MODE-DECLARATION-REF>
-                </FUNCTION-GROUP-STATE-IREF>
-              </FUNCTION-GROUP-STATE-IREFS>
-              <RESOURCE-GROUP-REF DEST="RESOURCE-GROUP">/ISOFT/Development/Machine1/OS/DefaultResourceGroup</RESOURCE-GROUP-REF>
-              <STARTUP-CONFIG-REF DEST="STARTUP-CONFIG">/AvDeployment/startup_set/perception_config</STARTUP-CONFIG-REF>
-            </STATE-DEPENDENT-STARTUP-CONFIG>
-          </STATE-DEPENDENT-STARTUP-CONFIGS>
-        </PROCESS>
-
-        <!-- Planning: Driving -->
-        <PROCESS>
-          <SHORT-NAME>planning_process</SHORT-NAME>
-          <DESIGN-REF DEST="PROCESS-DESIGN">/PlanningApp/PlanningDesign</DESIGN-REF>
-          <EXECUTABLE-REF DEST="EXECUTABLE">/PlanningApp/exe/planningd</EXECUTABLE-REF>
-          <PROCESS-STATE-MACHINE>
-            <SHORT-NAME>processStateMachine</SHORT-NAME>
-            <TYPE-TREF DEST="MODE-DECLARATION-GROUP">/ISOFT/ProcessModes/ProcessStateMachine</TYPE-TREF>
-          </PROCESS-STATE-MACHINE>
-          <STATE-DEPENDENT-STARTUP-CONFIGS>
-            <STATE-DEPENDENT-STARTUP-CONFIG>
-              <FUNCTION-GROUP-STATE-IREFS>
-                <FUNCTION-GROUP-STATE-IREF>
-                  <CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF DEST="MODE-DECLARATION-GROUP-PROTOTYPE">/FunctionGroups/AvPilot/FunctionGroupsSet/AvPilotFG</CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF>
-                  <TARGET-MODE-DECLARATION-REF DEST="MODE-DECLARATION">/FunctionGroups/AvPilot/AvPilotFG/Driving</TARGET-MODE-DECLARATION-REF>
-                </FUNCTION-GROUP-STATE-IREF>
-              </FUNCTION-GROUP-STATE-IREFS>
-              <RESOURCE-GROUP-REF DEST="RESOURCE-GROUP">/ISOFT/Development/Machine1/OS/DefaultResourceGroup</RESOURCE-GROUP-REF>
-              <STARTUP-CONFIG-REF DEST="STARTUP-CONFIG">/AvDeployment/startup_set/planning_config</STARTUP-CONFIG-REF>
-            </STATE-DEPENDENT-STARTUP-CONFIG>
-          </STATE-DEPENDENT-STARTUP-CONFIGS>
-        </PROCESS>
-
-        <!-- Control: Driving + Degraded + Safe -->
-        <PROCESS>
-          <SHORT-NAME>control_process</SHORT-NAME>
-          <DESIGN-REF DEST="PROCESS-DESIGN">/ControlApp/ControlDesign</DESIGN-REF>
-          <EXECUTABLE-REF DEST="EXECUTABLE">/ControlApp/exe/controld</EXECUTABLE-REF>
-          <PROCESS-STATE-MACHINE>
-            <SHORT-NAME>processStateMachine</SHORT-NAME>
-            <TYPE-TREF DEST="MODE-DECLARATION-GROUP">/ISOFT/ProcessModes/ProcessStateMachine</TYPE-TREF>
-          </PROCESS-STATE-MACHINE>
-          <STATE-DEPENDENT-STARTUP-CONFIGS>
-            <STATE-DEPENDENT-STARTUP-CONFIG>
-              <FUNCTION-GROUP-STATE-IREFS>
-                <FUNCTION-GROUP-STATE-IREF>
-                  <CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF DEST="MODE-DECLARATION-GROUP-PROTOTYPE">/FunctionGroups/AvPilot/FunctionGroupsSet/AvPilotFG</CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF>
-                  <TARGET-MODE-DECLARATION-REF DEST="MODE-DECLARATION">/FunctionGroups/AvPilot/AvPilotFG/Driving</TARGET-MODE-DECLARATION-REF>
-                </FUNCTION-GROUP-STATE-IREF>
-                <FUNCTION-GROUP-STATE-IREF>
-                  <CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF DEST="MODE-DECLARATION-GROUP-PROTOTYPE">/FunctionGroups/AvPilot/FunctionGroupsSet/AvPilotFG</CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF>
-                  <TARGET-MODE-DECLARATION-REF DEST="MODE-DECLARATION">/FunctionGroups/AvPilot/AvPilotFG/Degraded</TARGET-MODE-DECLARATION-REF>
-                </FUNCTION-GROUP-STATE-IREF>
-                <FUNCTION-GROUP-STATE-IREF>
-                  <CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF DEST="MODE-DECLARATION-GROUP-PROTOTYPE">/FunctionGroups/AvPilot/FunctionGroupsSet/AvPilotFG</CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF>
-                  <TARGET-MODE-DECLARATION-REF DEST="MODE-DECLARATION">/FunctionGroups/AvPilot/AvPilotFG/Safe</TARGET-MODE-DECLARATION-REF>
-                </FUNCTION-GROUP-STATE-IREF>
-              </FUNCTION-GROUP-STATE-IREFS>
-              <RESOURCE-GROUP-REF DEST="RESOURCE-GROUP">/ISOFT/Development/Machine1/OS/DefaultResourceGroup</RESOURCE-GROUP-REF>
-              <STARTUP-CONFIG-REF DEST="STARTUP-CONFIG">/AvDeployment/startup_set/control_config</STARTUP-CONFIG-REF>
-            </STATE-DEPENDENT-STARTUP-CONFIG>
-          </STATE-DEPENDENT-STARTUP-CONFIGS>
-        </PROCESS>
-
-        <STARTUP-CONFIG-SET>
-          <SHORT-NAME>startup_set</SHORT-NAME>
-          <STARTUP-CONFIGS>
-            <STARTUP-CONFIG>
-              <SHORT-NAME>control_config</SHORT-NAME>
-              <!-- Highest: owns the actuator and is the last gate. It must never be starved by the perception chain it is protecting. -->
-              <SCHEDULING-POLICY>RR</SCHEDULING-POLICY>
-              <SCHEDULING-PRIORITY>22</SCHEDULING-PRIORITY>
-              <TERMINATION-BEHAVIOR>PROCESS-IS-NOT-SELF-TERMINATING</TERMINATION-BEHAVIOR>
-            </STARTUP-CONFIG>
-            <STARTUP-CONFIG>
-              <SHORT-NAME>sensing_config</SHORT-NAME>
-              <!-- Above perception: a dropped capture cannot be recovered downstream, and the ring writer must stay ahead of the reader. -->
-              <SCHEDULING-POLICY>RR</SCHEDULING-POLICY>
-              <SCHEDULING-PRIORITY>18</SCHEDULING-PRIORITY>
-              <TERMINATION-BEHAVIOR>PROCESS-IS-NOT-SELF-TERMINATING</TERMINATION-BEHAVIOR>
-            </STARTUP-CONFIG>
-            <STARTUP-CONFIG>
-              <SHORT-NAME>planning_config</SHORT-NAME>
-              <!-- Above perception: small, bounded work on a short deadline. Below control. -->
-              <SCHEDULING-POLICY>RR</SCHEDULING-POLICY>
-              <SCHEDULING-PRIORITY>14</SCHEDULING-PRIORITY>
-              <TERMINATION-BEHAVIOR>PROCESS-IS-NOT-SELF-TERMINATING</TERMINATION-BEHAVIOR>
-            </STARTUP-CONFIG>
-            <STARTUP-CONFIG>
-              <SHORT-NAME>perception_config</SHORT-NAME>
-              <!-- Lowest of the four: the long GPU-bound stage, and the one that can absorb a late cycle by dropping a frame. -->
-              <SCHEDULING-POLICY>RR</SCHEDULING-POLICY>
-              <SCHEDULING-PRIORITY>12</SCHEDULING-PRIORITY>
-              <TERMINATION-BEHAVIOR>PROCESS-IS-NOT-SELF-TERMINATING</TERMINATION-BEHAVIOR>
-            </STARTUP-CONFIG>
-          </STARTUP-CONFIGS>
-        </STARTUP-CONFIG-SET>
 
         <!-- Resolves each InstanceSpecifier the C++ passes to ara::com. -->
         <SERVICE-INSTANCE-TO-PORT-PROTOTYPE-MAPPING UUID="">

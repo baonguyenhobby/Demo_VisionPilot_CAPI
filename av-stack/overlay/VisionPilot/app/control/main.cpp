@@ -34,6 +34,7 @@
 #include <vehicle_interface/file_interface.hpp>
 
 #include <ap_runtime/ap_runtime.hpp>
+#include "../common/phase.hpp"
 
 #include <ara/core/instance_specifier.h>
 #include <ara/core/promise.h>
@@ -89,7 +90,8 @@ ChassisCommand to_chassis(double steering_rad, double accel_mps2, double ego_v_m
 
 int main(int argc, char** argv)
 {
-    (void)argc; (void)argv;
+    const vpap::Phase phase = vpap::parse_phase(argc, argv);
+    VP_INFO("controld: starting, phase=%s", vpap::to_string(phase));
 
     Config cfg;
     try { cfg = load_vision_pilot_config(); }
@@ -97,6 +99,20 @@ int main(int argc, char** argv)
 
     ap::ApRuntime runtime("");
     if (!runtime.ok()) { VP_ERROR("controld: ara::core::Initialize() failed"); return 1; }
+
+    // Init phase: Control owns the chassis link, so a missing ego-speed log on
+    // the bench means it would run blind. Single & so every problem is reported
+    // in one pass rather than one per boot.
+    if (phase == vpap::Phase::Init)
+    {
+        runtime.report_running();
+        bool ok = vpap::require_positive(cfg.L,           "wheelbase L", "controld")
+                & vpap::require_positive(cfg.speed_limit, "speed_limit", "controld");
+        if (cfg.source.mode == SourceMode::Video)
+            ok = vpap::require_file(cfg.source.input_vehicle_speed, "ego speed log", "controld") & ok;
+        VP_INFO("controld: init %s", ok ? "ok" : "FAILED");
+        return ok ? 0 : 1;
+    }
 
     // ── Chassis ──────────────────────────────────────────────────────────────
     // On the bench this replays frame_speed.txt; on the rover it is the real

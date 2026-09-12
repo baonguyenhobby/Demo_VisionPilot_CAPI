@@ -43,6 +43,7 @@
 #include <visualization/visualization.hpp>
 
 #include <ap_runtime/ap_runtime.hpp>
+#include "../common/phase.hpp"
 #include "../common/frame_ring.hpp"
 
 #include <ara/core/instance_specifier.h>
@@ -71,7 +72,8 @@ constexpr double kCipoMaxDistanceM = 150.0;
 
 int main(int argc, char** argv)
 {
-    (void)argc; (void)argv;
+    const vpap::Phase phase = vpap::parse_phase(argc, argv);
+    VP_INFO("perceptiond: starting, phase=%s", vpap::to_string(phase));
 
     Config cfg;
     try { cfg = load_vision_pilot_config(); }
@@ -79,6 +81,17 @@ int main(int argc, char** argv)
 
     ap::ApRuntime runtime("");
     if (!runtime.ok()) { VP_ERROR("perceptiond: ara::core::Initialize() failed"); return 1; }
+
+    // Init phase: the engine and the inference pipeline are already constructed
+    // above, so reaching this line IS the check -- a missing or malformed .onnx
+    // throws there, before any service is offered. The session does not survive
+    // into the run phase; this is fail-fast, not warm-up.
+    if (phase == vpap::Phase::Init)
+    {
+        runtime.report_running();
+        VP_INFO("perceptiond: init ok (engine and pipeline constructed)");
+        return 0;
+    }
 
     // ── Inference ────────────────────────────────────────────────────────────
     ve::OnnxEngine engine(cfg.engine);

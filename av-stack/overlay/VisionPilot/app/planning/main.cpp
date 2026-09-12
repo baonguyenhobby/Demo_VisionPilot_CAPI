@@ -37,6 +37,7 @@
 #include <planning/planning.hpp>
 
 #include <ap_runtime/ap_runtime.hpp>
+#include "../common/phase.hpp"
 
 #include <ara/core/instance_specifier.h>
 #include <ara/core/promise.h>
@@ -129,7 +130,8 @@ Proxy await_service(const char* label)
 
 int main(int argc, char** argv)
 {
-    (void)argc; (void)argv;
+    const vpap::Phase phase = vpap::parse_phase(argc, argv);
+    VP_INFO("planningd: starting, phase=%s", vpap::to_string(phase));
 
     Config cfg;
     try { cfg = load_vision_pilot_config(); }
@@ -143,6 +145,18 @@ int main(int argc, char** argv)
     {
         VP_ERROR("planningd: ara::core::Initialize() failed");
         return 1;
+    }
+
+    // Init phase: the two numbers the Planner is constructed from. Both are
+    // car-sized defaults that are wrong on the rover, so a zero or a negative
+    // here is a config error worth catching before Driving.
+    if (phase == vpap::Phase::Init)
+    {
+        runtime.report_running();
+        const bool ok = vpap::require_positive(cfg.L,           "wheelbase L", "planningd")
+                      & vpap::require_positive(cfg.speed_limit, "speed_limit", "planningd");
+        VP_INFO("planningd: init %s", ok ? "ok" : "FAILED");
+        return ok ? 0 : 1;
     }
 
     Planner planner(cfg.speed_limit, cfg.L);

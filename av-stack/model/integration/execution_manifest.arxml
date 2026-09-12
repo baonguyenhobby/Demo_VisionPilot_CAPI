@@ -1,0 +1,372 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  VisionPilot on AUTOSAR Adaptive (CAPI) - EXECUTION MANIFEST.
+
+  Eight Processes over four executables. Each Adaptive Application is deployed
+  twice from the same binary, told apart by the process argument (see the startup configs below):
+
+    <name>_init_process   AvPilotFG.Init      phase=init   self-terminating
+    <name>_process        AvPilotFG.Driving   phase=run    long-running
+                          (+ Degraded / Safe, per the table below)
+
+  The barrier between the two phases is the function-group state, not an
+  EXECUTION-DEPENDENCY: a dependency cannot span two function-group states.
+  EM starts the four *_init_process in AvPilotFG.Init; each does its one-time
+  work and exits. Only when AvPilotFG moves to Driving does EM start the four
+  long-running processes.
+
+  WHO MOVES Init -> Driving: State Management, by watching each init Process
+  reach the Terminated ProcessState, if CAPI's SM supports it. No CAPI platform
+  process uses PROCESS-IS-SELF-TERMINATING, so until that is demonstrated the
+  transition is driven explicitly by the test script. The manifest is identical
+  either way.
+
+  WHAT init MAY NOT DO: it is a separate process, so nothing it builds in memory
+  survives into the run phase. Init validates - config parses, model file opens,
+  camera or clip is readable - and fails fast. Warm-up belongs in the run phase
+  or in something that outlives a process.
+
+  Which state each process runs in:
+
+    Off        nothing
+    Init       sensing_init_process, perception_init_process,
+               planning_init_process, control_init_process
+    Driving    sensing_process, perception_process, planning_process,
+               control_process
+    Degraded   sensing_process, perception_process, control_process
+               (planning_process is absent, so EM stops it)
+    Safe       control_process only
+
+  SetState(AvPilotFG.Degraded) stops Planning and leaves the other three
+  running. No C++ implements that.
+
+  Processes live in /AvDeployment, the same package as the service instance
+  deployment in deployment.arxml - ARXML merges a package across files, which is
+  how CAPI's own model is organised.
+-->
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://autosar.org/schema/r4.0 AUTOSAR_00049.xsd">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>AvDeployment</SHORT-NAME>
+      <ELEMENTS>
+        <!-- sensing: init phase. Validates its inputs and exits; EM holds AvPilotFG.Init until it does. -->
+        <PROCESS>
+          <SHORT-NAME>sensing_init_process</SHORT-NAME>
+          <DESIGN-REF DEST="PROCESS-DESIGN">/SensingApp/SensingDesign</DESIGN-REF>
+          <EXECUTABLE-REF DEST="EXECUTABLE">/SensingApp/exe/sensingd</EXECUTABLE-REF>
+          <PROCESS-STATE-MACHINE>
+            <SHORT-NAME>processStateMachine</SHORT-NAME>
+            <TYPE-TREF DEST="MODE-DECLARATION-GROUP">/ISOFT/ProcessModes/ProcessStateMachine</TYPE-TREF>
+          </PROCESS-STATE-MACHINE>
+          <STATE-DEPENDENT-STARTUP-CONFIGS>
+            <STATE-DEPENDENT-STARTUP-CONFIG>
+              <FUNCTION-GROUP-STATE-IREFS>
+                <FUNCTION-GROUP-STATE-IREF>
+                  <CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF DEST="MODE-DECLARATION-GROUP-PROTOTYPE">/FunctionGroups/AvPilot/FunctionGroupsSet/AvPilotFG</CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF>
+                  <TARGET-MODE-DECLARATION-REF DEST="MODE-DECLARATION">/FunctionGroups/AvPilot/AvPilotFG/Init</TARGET-MODE-DECLARATION-REF>
+                </FUNCTION-GROUP-STATE-IREF>
+              </FUNCTION-GROUP-STATE-IREFS>
+              <RESOURCE-GROUP-REF DEST="RESOURCE-GROUP">/ISOFT/Development/Machine1/OS/DefaultResourceGroup</RESOURCE-GROUP-REF>
+              <STARTUP-CONFIG-REF DEST="STARTUP-CONFIG">/AvDeployment/startup_set/sensing_init_config</STARTUP-CONFIG-REF>
+            </STATE-DEPENDENT-STARTUP-CONFIG>
+          </STATE-DEPENDENT-STARTUP-CONFIGS>
+        </PROCESS>
+
+        <!-- perception: init phase. Validates its inputs and exits; EM holds AvPilotFG.Init until it does. -->
+        <PROCESS>
+          <SHORT-NAME>perception_init_process</SHORT-NAME>
+          <DESIGN-REF DEST="PROCESS-DESIGN">/PerceptionApp/PerceptionDesign</DESIGN-REF>
+          <EXECUTABLE-REF DEST="EXECUTABLE">/PerceptionApp/exe/perceptiond</EXECUTABLE-REF>
+          <PROCESS-STATE-MACHINE>
+            <SHORT-NAME>processStateMachine</SHORT-NAME>
+            <TYPE-TREF DEST="MODE-DECLARATION-GROUP">/ISOFT/ProcessModes/ProcessStateMachine</TYPE-TREF>
+          </PROCESS-STATE-MACHINE>
+          <STATE-DEPENDENT-STARTUP-CONFIGS>
+            <STATE-DEPENDENT-STARTUP-CONFIG>
+              <FUNCTION-GROUP-STATE-IREFS>
+                <FUNCTION-GROUP-STATE-IREF>
+                  <CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF DEST="MODE-DECLARATION-GROUP-PROTOTYPE">/FunctionGroups/AvPilot/FunctionGroupsSet/AvPilotFG</CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF>
+                  <TARGET-MODE-DECLARATION-REF DEST="MODE-DECLARATION">/FunctionGroups/AvPilot/AvPilotFG/Init</TARGET-MODE-DECLARATION-REF>
+                </FUNCTION-GROUP-STATE-IREF>
+              </FUNCTION-GROUP-STATE-IREFS>
+              <RESOURCE-GROUP-REF DEST="RESOURCE-GROUP">/ISOFT/Development/Machine1/OS/DefaultResourceGroup</RESOURCE-GROUP-REF>
+              <STARTUP-CONFIG-REF DEST="STARTUP-CONFIG">/AvDeployment/startup_set/perception_init_config</STARTUP-CONFIG-REF>
+            </STATE-DEPENDENT-STARTUP-CONFIG>
+          </STATE-DEPENDENT-STARTUP-CONFIGS>
+        </PROCESS>
+
+        <!-- planning: init phase. Validates its inputs and exits; EM holds AvPilotFG.Init until it does. -->
+        <PROCESS>
+          <SHORT-NAME>planning_init_process</SHORT-NAME>
+          <DESIGN-REF DEST="PROCESS-DESIGN">/PlanningApp/PlanningDesign</DESIGN-REF>
+          <EXECUTABLE-REF DEST="EXECUTABLE">/PlanningApp/exe/planningd</EXECUTABLE-REF>
+          <PROCESS-STATE-MACHINE>
+            <SHORT-NAME>processStateMachine</SHORT-NAME>
+            <TYPE-TREF DEST="MODE-DECLARATION-GROUP">/ISOFT/ProcessModes/ProcessStateMachine</TYPE-TREF>
+          </PROCESS-STATE-MACHINE>
+          <STATE-DEPENDENT-STARTUP-CONFIGS>
+            <STATE-DEPENDENT-STARTUP-CONFIG>
+              <FUNCTION-GROUP-STATE-IREFS>
+                <FUNCTION-GROUP-STATE-IREF>
+                  <CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF DEST="MODE-DECLARATION-GROUP-PROTOTYPE">/FunctionGroups/AvPilot/FunctionGroupsSet/AvPilotFG</CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF>
+                  <TARGET-MODE-DECLARATION-REF DEST="MODE-DECLARATION">/FunctionGroups/AvPilot/AvPilotFG/Init</TARGET-MODE-DECLARATION-REF>
+                </FUNCTION-GROUP-STATE-IREF>
+              </FUNCTION-GROUP-STATE-IREFS>
+              <RESOURCE-GROUP-REF DEST="RESOURCE-GROUP">/ISOFT/Development/Machine1/OS/DefaultResourceGroup</RESOURCE-GROUP-REF>
+              <STARTUP-CONFIG-REF DEST="STARTUP-CONFIG">/AvDeployment/startup_set/planning_init_config</STARTUP-CONFIG-REF>
+            </STATE-DEPENDENT-STARTUP-CONFIG>
+          </STATE-DEPENDENT-STARTUP-CONFIGS>
+        </PROCESS>
+
+        <!-- control: init phase. Validates its inputs and exits; EM holds AvPilotFG.Init until it does. -->
+        <PROCESS>
+          <SHORT-NAME>control_init_process</SHORT-NAME>
+          <DESIGN-REF DEST="PROCESS-DESIGN">/ControlApp/ControlDesign</DESIGN-REF>
+          <EXECUTABLE-REF DEST="EXECUTABLE">/ControlApp/exe/controld</EXECUTABLE-REF>
+          <PROCESS-STATE-MACHINE>
+            <SHORT-NAME>processStateMachine</SHORT-NAME>
+            <TYPE-TREF DEST="MODE-DECLARATION-GROUP">/ISOFT/ProcessModes/ProcessStateMachine</TYPE-TREF>
+          </PROCESS-STATE-MACHINE>
+          <STATE-DEPENDENT-STARTUP-CONFIGS>
+            <STATE-DEPENDENT-STARTUP-CONFIG>
+              <FUNCTION-GROUP-STATE-IREFS>
+                <FUNCTION-GROUP-STATE-IREF>
+                  <CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF DEST="MODE-DECLARATION-GROUP-PROTOTYPE">/FunctionGroups/AvPilot/FunctionGroupsSet/AvPilotFG</CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF>
+                  <TARGET-MODE-DECLARATION-REF DEST="MODE-DECLARATION">/FunctionGroups/AvPilot/AvPilotFG/Init</TARGET-MODE-DECLARATION-REF>
+                </FUNCTION-GROUP-STATE-IREF>
+              </FUNCTION-GROUP-STATE-IREFS>
+              <RESOURCE-GROUP-REF DEST="RESOURCE-GROUP">/ISOFT/Development/Machine1/OS/DefaultResourceGroup</RESOURCE-GROUP-REF>
+              <STARTUP-CONFIG-REF DEST="STARTUP-CONFIG">/AvDeployment/startup_set/control_init_config</STARTUP-CONFIG-REF>
+            </STATE-DEPENDENT-STARTUP-CONFIG>
+          </STATE-DEPENDENT-STARTUP-CONFIGS>
+        </PROCESS>
+
+        <!-- Above perception: a dropped capture cannot be recovered downstream, and the ring writer must stay ahead of the reader. -->
+        <PROCESS>
+          <SHORT-NAME>sensing_process</SHORT-NAME>
+          <DESIGN-REF DEST="PROCESS-DESIGN">/SensingApp/SensingDesign</DESIGN-REF>
+          <EXECUTABLE-REF DEST="EXECUTABLE">/SensingApp/exe/sensingd</EXECUTABLE-REF>
+          <PROCESS-STATE-MACHINE>
+            <SHORT-NAME>processStateMachine</SHORT-NAME>
+            <TYPE-TREF DEST="MODE-DECLARATION-GROUP">/ISOFT/ProcessModes/ProcessStateMachine</TYPE-TREF>
+          </PROCESS-STATE-MACHINE>
+          <STATE-DEPENDENT-STARTUP-CONFIGS>
+            <STATE-DEPENDENT-STARTUP-CONFIG>
+              <FUNCTION-GROUP-STATE-IREFS>
+                <FUNCTION-GROUP-STATE-IREF>
+                  <CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF DEST="MODE-DECLARATION-GROUP-PROTOTYPE">/FunctionGroups/AvPilot/FunctionGroupsSet/AvPilotFG</CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF>
+                  <TARGET-MODE-DECLARATION-REF DEST="MODE-DECLARATION">/FunctionGroups/AvPilot/AvPilotFG/Driving</TARGET-MODE-DECLARATION-REF>
+                </FUNCTION-GROUP-STATE-IREF>
+                <FUNCTION-GROUP-STATE-IREF>
+                  <CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF DEST="MODE-DECLARATION-GROUP-PROTOTYPE">/FunctionGroups/AvPilot/FunctionGroupsSet/AvPilotFG</CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF>
+                  <TARGET-MODE-DECLARATION-REF DEST="MODE-DECLARATION">/FunctionGroups/AvPilot/AvPilotFG/Degraded</TARGET-MODE-DECLARATION-REF>
+                </FUNCTION-GROUP-STATE-IREF>
+              </FUNCTION-GROUP-STATE-IREFS>
+              <RESOURCE-GROUP-REF DEST="RESOURCE-GROUP">/ISOFT/Development/Machine1/OS/DefaultResourceGroup</RESOURCE-GROUP-REF>
+              <STARTUP-CONFIG-REF DEST="STARTUP-CONFIG">/AvDeployment/startup_set/sensing_config</STARTUP-CONFIG-REF>
+            </STATE-DEPENDENT-STARTUP-CONFIG>
+          </STATE-DEPENDENT-STARTUP-CONFIGS>
+        </PROCESS>
+
+        <!-- Lowest of the four: the long GPU-bound stage, and the one that can absorb a late cycle by dropping a frame. -->
+        <PROCESS>
+          <SHORT-NAME>perception_process</SHORT-NAME>
+          <DESIGN-REF DEST="PROCESS-DESIGN">/PerceptionApp/PerceptionDesign</DESIGN-REF>
+          <EXECUTABLE-REF DEST="EXECUTABLE">/PerceptionApp/exe/perceptiond</EXECUTABLE-REF>
+          <PROCESS-STATE-MACHINE>
+            <SHORT-NAME>processStateMachine</SHORT-NAME>
+            <TYPE-TREF DEST="MODE-DECLARATION-GROUP">/ISOFT/ProcessModes/ProcessStateMachine</TYPE-TREF>
+          </PROCESS-STATE-MACHINE>
+          <STATE-DEPENDENT-STARTUP-CONFIGS>
+            <STATE-DEPENDENT-STARTUP-CONFIG>
+              <FUNCTION-GROUP-STATE-IREFS>
+                <FUNCTION-GROUP-STATE-IREF>
+                  <CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF DEST="MODE-DECLARATION-GROUP-PROTOTYPE">/FunctionGroups/AvPilot/FunctionGroupsSet/AvPilotFG</CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF>
+                  <TARGET-MODE-DECLARATION-REF DEST="MODE-DECLARATION">/FunctionGroups/AvPilot/AvPilotFG/Driving</TARGET-MODE-DECLARATION-REF>
+                </FUNCTION-GROUP-STATE-IREF>
+                <FUNCTION-GROUP-STATE-IREF>
+                  <CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF DEST="MODE-DECLARATION-GROUP-PROTOTYPE">/FunctionGroups/AvPilot/FunctionGroupsSet/AvPilotFG</CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF>
+                  <TARGET-MODE-DECLARATION-REF DEST="MODE-DECLARATION">/FunctionGroups/AvPilot/AvPilotFG/Degraded</TARGET-MODE-DECLARATION-REF>
+                </FUNCTION-GROUP-STATE-IREF>
+              </FUNCTION-GROUP-STATE-IREFS>
+              <RESOURCE-GROUP-REF DEST="RESOURCE-GROUP">/ISOFT/Development/Machine1/OS/DefaultResourceGroup</RESOURCE-GROUP-REF>
+              <STARTUP-CONFIG-REF DEST="STARTUP-CONFIG">/AvDeployment/startup_set/perception_config</STARTUP-CONFIG-REF>
+            </STATE-DEPENDENT-STARTUP-CONFIG>
+          </STATE-DEPENDENT-STARTUP-CONFIGS>
+        </PROCESS>
+
+        <!-- Above perception: small, bounded work on a short deadline. Below control. -->
+        <PROCESS>
+          <SHORT-NAME>planning_process</SHORT-NAME>
+          <DESIGN-REF DEST="PROCESS-DESIGN">/PlanningApp/PlanningDesign</DESIGN-REF>
+          <EXECUTABLE-REF DEST="EXECUTABLE">/PlanningApp/exe/planningd</EXECUTABLE-REF>
+          <PROCESS-STATE-MACHINE>
+            <SHORT-NAME>processStateMachine</SHORT-NAME>
+            <TYPE-TREF DEST="MODE-DECLARATION-GROUP">/ISOFT/ProcessModes/ProcessStateMachine</TYPE-TREF>
+          </PROCESS-STATE-MACHINE>
+          <STATE-DEPENDENT-STARTUP-CONFIGS>
+            <STATE-DEPENDENT-STARTUP-CONFIG>
+              <FUNCTION-GROUP-STATE-IREFS>
+                <FUNCTION-GROUP-STATE-IREF>
+                  <CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF DEST="MODE-DECLARATION-GROUP-PROTOTYPE">/FunctionGroups/AvPilot/FunctionGroupsSet/AvPilotFG</CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF>
+                  <TARGET-MODE-DECLARATION-REF DEST="MODE-DECLARATION">/FunctionGroups/AvPilot/AvPilotFG/Driving</TARGET-MODE-DECLARATION-REF>
+                </FUNCTION-GROUP-STATE-IREF>
+              </FUNCTION-GROUP-STATE-IREFS>
+              <RESOURCE-GROUP-REF DEST="RESOURCE-GROUP">/ISOFT/Development/Machine1/OS/DefaultResourceGroup</RESOURCE-GROUP-REF>
+              <STARTUP-CONFIG-REF DEST="STARTUP-CONFIG">/AvDeployment/startup_set/planning_config</STARTUP-CONFIG-REF>
+            </STATE-DEPENDENT-STARTUP-CONFIG>
+          </STATE-DEPENDENT-STARTUP-CONFIGS>
+        </PROCESS>
+
+        <!-- Highest: owns the actuator and is the last gate. It must never be starved by the perception chain it is protecting. -->
+        <PROCESS>
+          <SHORT-NAME>control_process</SHORT-NAME>
+          <DESIGN-REF DEST="PROCESS-DESIGN">/ControlApp/ControlDesign</DESIGN-REF>
+          <EXECUTABLE-REF DEST="EXECUTABLE">/ControlApp/exe/controld</EXECUTABLE-REF>
+          <PROCESS-STATE-MACHINE>
+            <SHORT-NAME>processStateMachine</SHORT-NAME>
+            <TYPE-TREF DEST="MODE-DECLARATION-GROUP">/ISOFT/ProcessModes/ProcessStateMachine</TYPE-TREF>
+          </PROCESS-STATE-MACHINE>
+          <STATE-DEPENDENT-STARTUP-CONFIGS>
+            <STATE-DEPENDENT-STARTUP-CONFIG>
+              <FUNCTION-GROUP-STATE-IREFS>
+                <FUNCTION-GROUP-STATE-IREF>
+                  <CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF DEST="MODE-DECLARATION-GROUP-PROTOTYPE">/FunctionGroups/AvPilot/FunctionGroupsSet/AvPilotFG</CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF>
+                  <TARGET-MODE-DECLARATION-REF DEST="MODE-DECLARATION">/FunctionGroups/AvPilot/AvPilotFG/Driving</TARGET-MODE-DECLARATION-REF>
+                </FUNCTION-GROUP-STATE-IREF>
+                <FUNCTION-GROUP-STATE-IREF>
+                  <CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF DEST="MODE-DECLARATION-GROUP-PROTOTYPE">/FunctionGroups/AvPilot/FunctionGroupsSet/AvPilotFG</CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF>
+                  <TARGET-MODE-DECLARATION-REF DEST="MODE-DECLARATION">/FunctionGroups/AvPilot/AvPilotFG/Degraded</TARGET-MODE-DECLARATION-REF>
+                </FUNCTION-GROUP-STATE-IREF>
+                <FUNCTION-GROUP-STATE-IREF>
+                  <CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF DEST="MODE-DECLARATION-GROUP-PROTOTYPE">/FunctionGroups/AvPilot/FunctionGroupsSet/AvPilotFG</CONTEXT-MODE-DECLARATION-GROUP-PROTOTYPE-REF>
+                  <TARGET-MODE-DECLARATION-REF DEST="MODE-DECLARATION">/FunctionGroups/AvPilot/AvPilotFG/Safe</TARGET-MODE-DECLARATION-REF>
+                </FUNCTION-GROUP-STATE-IREF>
+              </FUNCTION-GROUP-STATE-IREFS>
+              <RESOURCE-GROUP-REF DEST="RESOURCE-GROUP">/ISOFT/Development/Machine1/OS/DefaultResourceGroup</RESOURCE-GROUP-REF>
+              <STARTUP-CONFIG-REF DEST="STARTUP-CONFIG">/AvDeployment/startup_set/control_config</STARTUP-CONFIG-REF>
+            </STATE-DEPENDENT-STARTUP-CONFIG>
+          </STATE-DEPENDENT-STARTUP-CONFIGS>
+        </PROCESS>
+
+        <STARTUP-CONFIG-SET>
+          <SHORT-NAME>startup_set</SHORT-NAME>
+          <STARTUP-CONFIGS>
+            <STARTUP-CONFIG>
+              <SHORT-NAME>sensing_init_config</SHORT-NAME>
+              <!-- One-shot. Same executable, argument phase=init, self-terminating. -->
+              <PROCESS-ARGUMENTS>
+                <PROCESS-ARGUMENT>
+                  <ARGUMENT>--phase=init</ARGUMENT>
+                </PROCESS-ARGUMENT>
+              </PROCESS-ARGUMENTS>
+              <SCHEDULING-POLICY>RR</SCHEDULING-POLICY>
+              <SCHEDULING-PRIORITY>18</SCHEDULING-PRIORITY>
+              <TERMINATION-BEHAVIOR>PROCESS-IS-SELF-TERMINATING</TERMINATION-BEHAVIOR>
+              <TIMEOUT>
+                <ENTER-TIMEOUT-VALUE>10.0</ENTER-TIMEOUT-VALUE>
+                <EXIT-TIMEOUT-VALUE>10.0</EXIT-TIMEOUT-VALUE>
+              </TIMEOUT>
+            </STARTUP-CONFIG>
+            <STARTUP-CONFIG>
+              <SHORT-NAME>perception_init_config</SHORT-NAME>
+              <!-- One-shot. Same executable, argument phase=init, self-terminating. -->
+              <PROCESS-ARGUMENTS>
+                <PROCESS-ARGUMENT>
+                  <ARGUMENT>--phase=init</ARGUMENT>
+                </PROCESS-ARGUMENT>
+              </PROCESS-ARGUMENTS>
+              <SCHEDULING-POLICY>RR</SCHEDULING-POLICY>
+              <SCHEDULING-PRIORITY>12</SCHEDULING-PRIORITY>
+              <TERMINATION-BEHAVIOR>PROCESS-IS-SELF-TERMINATING</TERMINATION-BEHAVIOR>
+              <TIMEOUT>
+                <ENTER-TIMEOUT-VALUE>10.0</ENTER-TIMEOUT-VALUE>
+                <EXIT-TIMEOUT-VALUE>10.0</EXIT-TIMEOUT-VALUE>
+              </TIMEOUT>
+            </STARTUP-CONFIG>
+            <STARTUP-CONFIG>
+              <SHORT-NAME>planning_init_config</SHORT-NAME>
+              <!-- One-shot. Same executable, argument phase=init, self-terminating. -->
+              <PROCESS-ARGUMENTS>
+                <PROCESS-ARGUMENT>
+                  <ARGUMENT>--phase=init</ARGUMENT>
+                </PROCESS-ARGUMENT>
+              </PROCESS-ARGUMENTS>
+              <SCHEDULING-POLICY>RR</SCHEDULING-POLICY>
+              <SCHEDULING-PRIORITY>14</SCHEDULING-PRIORITY>
+              <TERMINATION-BEHAVIOR>PROCESS-IS-SELF-TERMINATING</TERMINATION-BEHAVIOR>
+              <TIMEOUT>
+                <ENTER-TIMEOUT-VALUE>10.0</ENTER-TIMEOUT-VALUE>
+                <EXIT-TIMEOUT-VALUE>10.0</EXIT-TIMEOUT-VALUE>
+              </TIMEOUT>
+            </STARTUP-CONFIG>
+            <STARTUP-CONFIG>
+              <SHORT-NAME>control_init_config</SHORT-NAME>
+              <!-- One-shot. Same executable, argument phase=init, self-terminating. -->
+              <PROCESS-ARGUMENTS>
+                <PROCESS-ARGUMENT>
+                  <ARGUMENT>--phase=init</ARGUMENT>
+                </PROCESS-ARGUMENT>
+              </PROCESS-ARGUMENTS>
+              <SCHEDULING-POLICY>RR</SCHEDULING-POLICY>
+              <SCHEDULING-PRIORITY>22</SCHEDULING-PRIORITY>
+              <TERMINATION-BEHAVIOR>PROCESS-IS-SELF-TERMINATING</TERMINATION-BEHAVIOR>
+              <TIMEOUT>
+                <ENTER-TIMEOUT-VALUE>10.0</ENTER-TIMEOUT-VALUE>
+                <EXIT-TIMEOUT-VALUE>10.0</EXIT-TIMEOUT-VALUE>
+              </TIMEOUT>
+            </STARTUP-CONFIG>
+            <STARTUP-CONFIG>
+              <SHORT-NAME>sensing_config</SHORT-NAME>
+              <!-- Above perception: a dropped capture cannot be recovered downstream, and the ring writer must stay ahead of the reader. -->
+              <PROCESS-ARGUMENTS>
+                <PROCESS-ARGUMENT>
+                  <ARGUMENT>--phase=run</ARGUMENT>
+                </PROCESS-ARGUMENT>
+              </PROCESS-ARGUMENTS>
+              <SCHEDULING-POLICY>RR</SCHEDULING-POLICY>
+              <SCHEDULING-PRIORITY>18</SCHEDULING-PRIORITY>
+              <TERMINATION-BEHAVIOR>PROCESS-IS-NOT-SELF-TERMINATING</TERMINATION-BEHAVIOR>
+            </STARTUP-CONFIG>
+            <STARTUP-CONFIG>
+              <SHORT-NAME>perception_config</SHORT-NAME>
+              <!-- Lowest of the four: the long GPU-bound stage, and the one that can absorb a late cycle by dropping a frame. -->
+              <PROCESS-ARGUMENTS>
+                <PROCESS-ARGUMENT>
+                  <ARGUMENT>--phase=run</ARGUMENT>
+                </PROCESS-ARGUMENT>
+              </PROCESS-ARGUMENTS>
+              <SCHEDULING-POLICY>RR</SCHEDULING-POLICY>
+              <SCHEDULING-PRIORITY>12</SCHEDULING-PRIORITY>
+              <TERMINATION-BEHAVIOR>PROCESS-IS-NOT-SELF-TERMINATING</TERMINATION-BEHAVIOR>
+            </STARTUP-CONFIG>
+            <STARTUP-CONFIG>
+              <SHORT-NAME>planning_config</SHORT-NAME>
+              <!-- Above perception: small, bounded work on a short deadline. Below control. -->
+              <PROCESS-ARGUMENTS>
+                <PROCESS-ARGUMENT>
+                  <ARGUMENT>--phase=run</ARGUMENT>
+                </PROCESS-ARGUMENT>
+              </PROCESS-ARGUMENTS>
+              <SCHEDULING-POLICY>RR</SCHEDULING-POLICY>
+              <SCHEDULING-PRIORITY>14</SCHEDULING-PRIORITY>
+              <TERMINATION-BEHAVIOR>PROCESS-IS-NOT-SELF-TERMINATING</TERMINATION-BEHAVIOR>
+            </STARTUP-CONFIG>
+            <STARTUP-CONFIG>
+              <SHORT-NAME>control_config</SHORT-NAME>
+              <!-- Highest: owns the actuator and is the last gate. It must never be starved by the perception chain it is protecting. -->
+              <PROCESS-ARGUMENTS>
+                <PROCESS-ARGUMENT>
+                  <ARGUMENT>--phase=run</ARGUMENT>
+                </PROCESS-ARGUMENT>
+              </PROCESS-ARGUMENTS>
+              <SCHEDULING-POLICY>RR</SCHEDULING-POLICY>
+              <SCHEDULING-PRIORITY>22</SCHEDULING-PRIORITY>
+              <TERMINATION-BEHAVIOR>PROCESS-IS-NOT-SELF-TERMINATING</TERMINATION-BEHAVIOR>
+            </STARTUP-CONFIG>
+          </STARTUP-CONFIGS>
+        </STARTUP-CONFIG-SET>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>

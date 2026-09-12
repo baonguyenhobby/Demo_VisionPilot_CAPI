@@ -38,6 +38,10 @@
                         <CONTAINED-AR-ELEMENT-REF DEST="EXECUTABLE">/ControlApp/exe/controld</CONTAINED-AR-ELEMENT-REF>
                       </CONTAINED-AR-ELEMENT-REFS>
                       <CONTAINED-PROCESS-REFS>
+                        <CONTAINED-PROCESS-REF DEST="PROCESS">/AvDeployment/sensing_init_process</CONTAINED-PROCESS-REF>
+                        <CONTAINED-PROCESS-REF DEST="PROCESS">/AvDeployment/perception_init_process</CONTAINED-PROCESS-REF>
+                        <CONTAINED-PROCESS-REF DEST="PROCESS">/AvDeployment/planning_init_process</CONTAINED-PROCESS-REF>
+                        <CONTAINED-PROCESS-REF DEST="PROCESS">/AvDeployment/control_init_process</CONTAINED-PROCESS-REF>
                         <CONTAINED-PROCESS-REF DEST="PROCESS">/AvDeployment/sensing_process</CONTAINED-PROCESS-REF>
                         <CONTAINED-PROCESS-REF DEST="PROCESS">/AvDeployment/perception_process</CONTAINED-PROCESS-REF>
                         <CONTAINED-PROCESS-REF DEST="PROCESS">/AvDeployment/planning_process</CONTAINED-PROCESS-REF>

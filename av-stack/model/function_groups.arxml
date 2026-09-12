@@ -5,9 +5,11 @@
   AvPilotFG carries the whole degradation story:
 
     Off        nothing runs
-    Driving    VisionPilot AA + Control AA
-    Degraded   Control AA ONLY  <- VisionPilot is not listed, so EM stops it
-    Safe       nothing runs
+    Init       the four one-shot init processes; they exit
+    Driving    Sensing + Perception + Planning + Control
+    Degraded   Sensing + Perception + Control; Planning is not listed,
+               so EM stops it
+    Safe       Control only
 
   The asymmetry between Driving and Degraded is the design. When PHM reports
   the perception chain EXPIRED, State Management sets AvPilotFG.Degraded; EM
@@ -32,6 +34,9 @@
               <MODE-DECLARATIONS>
                 <MODE-DECLARATION>
                   <SHORT-NAME>Off</SHORT-NAME>
+                </MODE-DECLARATION>
+                <MODE-DECLARATION>
+                  <SHORT-NAME>Init</SHORT-NAME>
                 </MODE-DECLARATION>
                 <MODE-DECLARATION>
                   <SHORT-NAME>Driving</SHORT-NAME>

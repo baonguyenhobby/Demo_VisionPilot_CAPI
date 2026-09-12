@@ -37,6 +37,7 @@
 #include "camera_interface/v4l2_camera_interface.hpp"
 
 #include <ap_runtime/ap_runtime.hpp>
+#include "../common/phase.hpp"
 #include "../common/frame_ring.hpp"
 
 #include <ara/core/instance_specifier.h>
@@ -74,7 +75,8 @@ std::uint64_t now_ns() noexcept
 
 int main(int argc, char** argv)
 {
-    (void)argc; (void)argv;
+    const vpap::Phase phase = vpap::parse_phase(argc, argv);
+    VP_INFO("sensingd: starting, phase=%s", vpap::to_string(phase));
 
     Config cfg;
     try { cfg = load_vision_pilot_config(); }
@@ -82,6 +84,19 @@ int main(int argc, char** argv)
 
     ap::ApRuntime runtime("");
     if (!runtime.ok()) { VP_ERROR("sensingd: ara::core::Initialize() failed"); return 1; }
+
+    // Init phase: prove the source exists before anything downstream waits on
+    // frames that will never arrive. Nothing is opened for keeps -- this process
+    // exits, and the run phase opens the device itself.
+    if (phase == vpap::Phase::Init)
+    {
+        runtime.report_running();
+        bool ok = (cfg.source.mode == SourceMode::Video)
+                ? vpap::require_file(cfg.source.input_video,  "input video",   "sensingd")
+                : vpap::require_file(cfg.source.v4l2_device,  "camera device", "sensingd");
+        VP_INFO("sensingd: init %s", ok ? "ok" : "FAILED");
+        return ok ? 0 : 1;
+    }
 
     // ── Frame source ─────────────────────────────────────────────────────────
     // Chosen by source.mode exactly as upstream: the same binary runs open-loop

@@ -52,12 +52,19 @@ sudo apt update && sudo apt install -y --no-install-recommends \
     gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-nice \
     libnice-dev libsrtp2-dev libboost-system-dev nlohmann-json3-dev \
     coinor-libipopt-dev libcppad-dev liblapack-dev libblas-dev
+```
 
+#C++ Algorithmic Differentiation (CppAD) includes `<coin-or/IpIpoptApplication.hpp>`; Ubuntu 24.04 ships the headers
+#under a different directory name. Resolve it rather than hard-coding:
+```bash
 hdr_dir="$(dirname "$(find /usr/include -name IpIpoptApplication.hpp | head -1)")"
 echo "$hdr_dir"
 [ -n "$hdr_dir" ] && sudo ln -sfn "$hdr_dir" /usr/include/coin-or
 ls -ld /usr/include/coin-or	
-	
+```
+
+### ONNX Runtime
+```bash	
 mkdir -p ~/ort_extract && cd ~/ort_extract
 wget -O ort.tgz "https://github.com/microsoft/onnxruntime/releases/download/v1.26.0/onnxruntime-linux-x64-1.26.0.tgz"
 tar -xzf ort.tgz
@@ -94,12 +101,14 @@ export SDK_UTILS="$CAPI_SRC_DIR/isoft/sdk-utils/bin/sdk-utils.py"
 export CAPI_BUILD_DIR="$HOME/capi-build"
 export SDK_OUTPUT_DIR="$HOME/capi-build/sdk"
 export SDK_INST_DIR="$HOME/capi-sdk"
-export ARA_SYSROOT="$SDK_INST_DIR/ara-sysroot"
+export SDK_SYSROOT="$SDK_INST_DIR/ara-sysroot"   # headers, libs, config.sh, build.sh
+export ARA_SYSROOT="$HOME/capi-machine"          # the machine root config.sh builds, run.sh boots
 export ARA_GEN_OUT="$HOME/aragen-4aa"
 export ARA_GEN_EXECUTABLE_OUTPUT="$HOME/.isoft/tmp/ara_binout"
 export OVERLAY="$HOME/Demo_VisionPilot_CAPI/av-stack/overlay"
 export PATH="$PATH:$CAPI_SRC_DIR/isoft/ara-gen"
 export ONNXRUNTIME_ROOT="$HOME/onnxruntime"
+export ISOFT_ARA_FSH_SYSROOT="$ARA_SYSROOT"
 EOF
 
 source ~/.bashrc
@@ -225,89 +234,162 @@ make ara-install
 ls -l "$ARA_GEN_EXECUTABLE_OUTPUT"
 ```
 
-### Runtime library resolution — the part that bites
-
-Linking at build time is not enough. EM starts `visionpilotd` from inside
-`${ARA_SYSROOT}`, not from the SDK tree, and it does not inherit your shell's
-`LD_LIBRARY_PATH`. Two workable answers:
-
-- **Dev host** — the SDK sits at a stable absolute path, so a baked RPATH is
-  fine:
-  `-DCMAKE_BUILD_WITH_INSTALL_RPATH=ON -DCMAKE_INSTALL_RPATH=<sdk lib dir>`.
-- **Target** — ship the `ara::` shared objects into the SWCL's own `lib/`
-  beside `bin/visionpilotd`, and build with
-  `-DCMAKE_INSTALL_RPATH='$ORIGIN/../lib'`. This is what the
-  `swcls/<name>/<version>/{bin,lib}` layout exists for, and it makes the SWCL
-  self-contained — which is what UCM needs anyway to update it as a unit.
-
-A missing `.so` here shows up as EM reporting the process failed to start with
-**no application log at all**, because it never reached `main()`. Check with
-`ldd` against the sysroot copy, not against your build tree.
-
-### aarch64
-
-The SDK built here is `...-x86_64-ubuntu24.04-native-...`. The Orin Nano needs
-an aarch64 SDK — built natively on the board (slow but straightforward) or
-cross-built. Nothing in this overlay is architecture-specific; the model and
-the generated code are identical either way.
-
-## 6. Put the executable where the configurator looks
-
-`config.sh` does not read your build directory. `buildExecutableFQN2PathDict`
-scans `ARA_GEN_EXECUTABLE_OUTPUT` — `~/.isoft/tmp/ara_binout` by default — and
-matches each executable's **short-name from the model** against the filenames
-it finds there. CAPI's own samples get this from `ab -i`; a standalone build
-does it explicitly:
+### Copy weights of AutoDrive, AutoSteer, AutoSpeed from VisionPilot into /usr/share/visionpilot
 
 ```bash
-install -D -m 0755 visionpilotd \
-    "${ARA_GEN_EXECUTABLE_OUTPUT:-$HOME/.isoft/tmp/ara_binout}/visionpilotd"
+# configuration
+sudo mkdir -p /usr/share/visionpilot/config
+sudo cp ~/Demo_VisionPilot_CAPI/vision_pilot/VisionPilot/config/* /usr/share/visionpilot/config/
+
+# model weights — NOT in config/, see the table below
+sudo mkdir -p /usr/share/visionpilot/modules/models/weights
+sudo cp ~/Demo_VisionPilot_CAPI/vision_pilot/VisionPilot/modules/models/weights/*.onnx \
+        /usr/share/visionpilot/modules/models/weights/
 ```
 
-Two failure modes, both of which cost real time if you don't know their shape:
+### The OpenLane dataset
+```bash
+sudo apt install -y pipx && pipx install gdown && pipx ensurepath && exec $SHELL -l
 
-- **Nothing installed.** `config.sh` runs for a minute, then fails with
-  `IntegrateSWCL, can't find executablePath for
-  executableFQN:/VisionPilotApp/exe/visionpilotd ... exists:False`. The real
-  cause is `self._executableFQN2PathDict:{}` further up the log — an empty
-  scan, not a broken model.
-- **Installed under the wrong name.** Identical error. The model says
-  `visionpilotd`; upstream CMake produces `VisionPilot`. The patch sets
-  `OUTPUT_NAME visionpilotd` for exactly this reason.
-
-## 7. Configure and run the machine
+mkdir -p ~/data && cd ~/data
+gdown --folder "https://drive.google.com/drive/folders/1-Sxgz3XHzFD6XtETz1sVFRtDKY3W57QB"
+ls ~/data/test_data/
+```
 
 ```bash
-MACHINE_NAME=Machine1 MACHINE_IP=<this host's IP> AA_SRC_FOLDER=<app dir> \
-  ${SDK_INST_DIR}/ara-sysroot/config.sh -m ${MACHINE_NAME} -s ${ARA_SYSROOT} \
-                                        -a ${AA_SRC_FOLDER} -p ${MACHINE_IP}
+D="$HOME/data/test_data/test_open_lane_2"      # the clip you want
 
-sudo -E ${ARA_SYSROOT}/run.sh -R                       # start the machine
-sudo -E ${ARA_SYSROOT}/run.sh -c AvPilotFG.Driving     # start both applications
-sudo -E ${ARA_SYSROOT}/run.sh -c AvPilotFG.Degraded    # <- stops VisionPilot, keeps the other
-sudo -E ${ARA_SYSROOT}/run.sh -s                       # stop the machine
+sudo sed -i "s|^source.input_video .*|source.input_video         = $D/input.mp4|"        /usr/share/visionpilot/config/vision_pilot_test.conf
+sudo sed -i "s|^source.input_vehicle_speed .*|source.input_vehicle_speed = $D/frame_speed.txt|" /usr/share/visionpilot/config/vision_pilot_test.conf
+sudo sed -i 's|^source.video_loop .*|source.video_loop = true|'                          /usr/share/visionpilot/config/vision_pilot_test.conf
+sudo sed -i 's|^engine.provider .*|engine.provider     = cpu|'                           /usr/share/visionpilot/config/vision_pilot.conf
+sudo cp "$D/H.yaml" /usr/share/visionpilot/config/H.yaml
+
+# homography_C_matrix.yaml is DERIVED from the clip's H.yaml and ships nowhere
+cd ~/Demo_VisionPilot_CAPI/vision_pilot/VisionPilot/scripts
+python3 - <<EOF
+import sys; sys.path.insert(0, '.')
+from pathlib import Path
+import cv2, numpy as np
+from find_homography_C_matrix import load_homography_H_matrix, find_homography_C_matrix
+C = find_homography_C_matrix(load_homography_H_matrix(Path("$D/H.yaml")))
+fs = cv2.FileStorage("/tmp/homography_C_matrix.yaml", cv2.FILE_STORAGE_WRITE)
+fs.write("C", C.astype(np.float32)); fs.release()
+EOF
+sudo cp /tmp/homography_C_matrix.yaml /usr/share/visionpilot/config/
 ```
 
-`AA_SRC_FOLDER` must cover **both** applications. A config run that integrates
-only one of them still reports `ret_code:0`, and produces a machine where the
-surviving process calls `StartFindService` and sits at
-`bindHandles: {"vector": {0}}` forever — a silent half-deployment that reads
-like a discovery bug.
+### Visualisation (optional)
 
-`sudo -E` matters: plain `sudo` drops `ARA_SYSROOT` and `ISOFT_ARA_RUNTIME_DIR`,
-and the `-c` command then talks to a different runtime directory than the
-machine is using.
+`show_window` is hard-coded `false` in `perception/main.cpp` — an EM-started
+process inherits no `DISPLAY`. The overlay is served over WebRTC instead:
 
-Application function groups do **not** start themselves. EM auto-starts
-`MachineFG` only; `AvPilotFG` stays `Off` until something requests a
-transition, which is what the `-c` line does. There is no error if you forget —
-the processes simply never start.
+```bash
+sudo sed -i 's|^visualization_on .*|visualization_on = true|; s|^webrtc_on .*|webrtc_on = true|' \
+    /usr/share/visionpilot/config/vision_pilot.conf
+```
 
-Logs go to DLT; use [dlt-viewer 2.30.0](https://github.com/COVESA/dlt-viewer/releases/tag/2.30.0)
-and filter on context `#VPA` for this application's own messages.
+### 6. Run the machine
 
-That `Degraded` line is the demonstration worth recording: EM stops one process
-and keeps the other purely because the execution manifest says so.
+```bash
+sudo -v                                        # else backgrounded run.sh exits 255 with an EMPTY log
+
+cd ~/Demo_VisionPilot_CAPI/vision_pilot/VisionPilot/build
+sudo mkdir -p /run/ara && sudo chown "$USER" /run/ara    # else "EMD exited with 255"
+
+sudo ip link add ara0 type dummy                         # else every daemon: "Cannot assign requested address"
+sudo ip addr add 192.168.14.98/24 dev ara0
+sudo ip link set ara0 up
+sudo ip route add 224.0.0.0/4 dev ara0
+```
+
+`ara0` carries the SDK's own default machine address, so the machine survives a
+DHCP change. A real host interface won't do: raw sockets fail on WSL2's mirrored
+adapters, which kills `tsyncd` and takes `MachineFG` down with it.
+
+# Note: Configure the machine — after every `make ara-install`
+```bash
+cd ~/Demo_VisionPilot_CAPI
+"$SDK_SYSROOT/config.sh" -m Machine1 -a "$PWD/av-stack" -s "$ARA_SYSROOT" -p 192.168.14.98
+```
+
+`-a` and `-s` are undocumented in `--help`. `-s` must differ from the SDK sysroot
+or configMachine tries to copy the SDK onto itself. `config.sh` copies the
+binaries into the SWCL, so run it after `ara-install`, never before.
+
+A FAILED `config.sh` is not safely retryable — it deletes `ara/ara_ver1.json` on
+the way out. Reinstall the SDK first:
+
+```bash
+rm -rf "$SDK_INST_DIR" "$ARA_SYSROOT"
+"$SDK_OUTPUT_DIR"/SDK-*.run "$SDK_INST_DIR"
+mkdir -p "$SDK_SYSROOT/ara/framework/1.0.0/share/samples"   # stale precondition in config.sh
+```
+
+### 7. Testing AvPilotFG.Driving
+```bash
+sudo -E "$ARA_SYSROOT/run.sh" -c AvPilotFG.Off
+sudo -E "$ARA_SYSROOT/run.sh" -c AvPilotFG.Init
+sleep 10
+grep -a -E "init (ok|FAILED)" /tmp/machine.log | tail -4     # want four 'ok'
+
+sudo -E "$ARA_SYSROOT/run.sh" -c AvPilotFG.Driving
+sleep 25
+sudo -E "$ARA_SYSROOT/run.sh" -C AvPilotFG                   # want AvPilotFG.Driving
+for p in sensingd perceptiond planningd controld; do printf "%-12s %s\n" "$p" "$(pgrep -x $p || echo -)"; done
+```
+
+Expected — all four with PIDs, and in the log:
+```
+frame ring: created /visionpilot_frames  1024x512  3 slots  9.0 MB  instance=<N>
+perceptiond: found CameraFrameService
+frame ring: mapped  /visionpilot_frames  1024x512  instance=<N>      <- same N
+perceptiond: running
+planningd: running
+ctrl: tyre=0.0027 rad  accel=-3.566 m/s2  ->  v=19.87 m/s  omega=+0.019 rad/s  |  ego=20.05 m/s  age=0 ms
+```
+
+### 8. Testing AvPilotFG.Degraded
+```bash
+sudo -E "$ARA_SYSROOT/run.sh" -c AvPilotFG.Degraded
+sleep 10
+for p in sensingd perceptiond planningd controld; do printf "%-12s %s\n" "$p" "$(pgrep -x $p || echo -)"; done
+grep -a -E "\[INFO\]  ctrl:" /tmp/machine.log | tail -4
+```
+
+`planningd` gone, the other three running, `age` climbing past 200 ms, and
+Control at `tyre=0.0000 accel=-4.000` once the 20-step horizon is exhausted.
+
+#In case errors, look for details:
+```bash
+pgrep -x sensingd; pgrep -x perceptiond; pgrep -x planningd; pgrep -x controld
+grep -a -nE "phase=run|\[ERROR\]|Terminated with exit code|OfferService|find" /tmp/machine.log | tail -30
+grep -a -nE "terminate called|what\(\):|Terminated with exit code|Enter Timeout|terminated Unexpected" /tmp/machine.log | tail -15
+```
+
+```bash
+grep -a -nE "Enter Timeout|Terminated with exit code|terminated Unexpected|\[ERROR\]|kRunning|ReportExecutionState" /tmp/machine.log | tail -25
+sed -n '5020,5090p' /tmp/machine.log
+```
+
+
+
+### Function group states
+
+```bash
+sudo -E "$ARA_SYSROOT/run.sh" -c AvPilotFG.Init      # 4 init processes run and exit
+sudo -E "$ARA_SYSROOT/run.sh" -c AvPilotFG.Driving   # the 4 AAs
+sudo -E "$ARA_SYSROOT/run.sh" -c AvPilotFG.Degraded  # stops Planning only
+sudo -E "$ARA_SYSROOT/run.sh" -c AvPilotFG.Safe      # Control only
+sudo -E "$ARA_SYSROOT/run.sh" -c AvPilotFG.Off
+
+sudo -E "$ARA_SYSROOT/run.sh" -C AvPilotFG
+```
+
+If a process exits non-zero, the group falls into Undefined and `-C` returns
+empty. `-c AvPilotFG.Off` recovers it; if not, stop and re-boot the machine.
+
+
 
 ---
 

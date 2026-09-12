@@ -118,6 +118,14 @@ function(ara_find_capi)
     # libraries carry no runpath of their own, so libara-com.so's own
     # dependencies (libisoft_manifestreader.so.1 and friends) are unresolvable
     # under DT_RUNPATH even though the path is right there in the binary.
+    # ONNX Runtime, for perceptiond. EM starts processes with LD_LIBRARY_PATH
+    # pointing at the SDK and nothing else, so a library found at build time via
+    # -DONNXRUNTIME_ROOT is NOT found at run time unless its directory is in the
+    # RPATH. The failure is exit code 127 with no application log at all.
+    if(ONNXRUNTIME_ROOT AND EXISTS "${ONNXRUNTIME_ROOT}/lib")
+        target_link_options(ap_capi INTERFACE "-Wl,-rpath,${ONNXRUNTIME_ROOT}/lib")
+    endif()
+
     target_link_options(ap_capi INTERFACE
             "-Wl,--disable-new-dtags"
             "-Wl,-rpath,${_sysroot}/usr/lib"

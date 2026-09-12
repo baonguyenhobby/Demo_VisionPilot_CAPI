@@ -31,10 +31,10 @@ index 4158d59..8cdb758 100644
  if(BUILD_TESTING)
      add_subdirectory(tests)
 diff --git a/VisionPilot/app/CMakeLists.txt b/VisionPilot/app/CMakeLists.txt
-index f5dc0cd..aa85aea 100644
+index f5dc0cd..be31f46 100644
 --- a/VisionPilot/app/CMakeLists.txt
 +++ b/VisionPilot/app/CMakeLists.txt
-@@ -75,3 +75,7 @@ install(DIRECTORY "${CMAKE_SOURCE_DIR}/modules/models/weights/"
+@@ -75,3 +75,13 @@ install(DIRECTORY "${CMAKE_SOURCE_DIR}/modules/models/weights/"
  install(DIRECTORY "${CMAKE_SOURCE_DIR}/onnxruntime/"
          DESTINATION "share/visionpilot/onnxruntime"
  )
@@ -42,3 +42,9 @@ index f5dc0cd..aa85aea 100644
 +if(ENABLE_AP_INTERFACE)
 +    include(${CMAKE_CURRENT_LIST_DIR}/av_stack.cmake)
 +endif()
++
++# Upstream's own target hits the gap we already patched for vp_planning:
++# modules/safety_guardian/planning links Ipopt but not cppad_lib, and
++# CppAD::local::temp_file lives in libcppad_lib.so, not in the headers.
++# Ubuntu 24.04 + libcppad-dev exposes it; the Docker image does not.
++target_link_libraries(VisionPilot PRIVATE cppad_lib)

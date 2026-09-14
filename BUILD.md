@@ -279,7 +279,7 @@ EOF
 sudo cp /tmp/homography_C_matrix.yaml /usr/share/visionpilot/config/
 ```
 
-### Visualisation (optional)
+### Visualisation
 
 `show_window` is hard-coded `false` in `perception/main.cpp` — an EM-started
 process inherits no `DISPLAY`. The overlay is served over WebRTC instead:
@@ -289,7 +289,7 @@ sudo sed -i 's|^visualization_on .*|visualization_on = true|; s|^webrtc_on .*|we
     /usr/share/visionpilot/config/vision_pilot.conf
 ```
 
-### 6. Run the machine
+### 6. Configure the machine
 
 ```bash
 sudo -v                                        # else backgrounded run.sh exits 255 with an EMPTY log
@@ -317,10 +317,10 @@ cd ~/Demo_VisionPilot_CAPI
 or configMachine tries to copy the SDK onto itself. `config.sh` copies the
 binaries into the SWCL, so run it after `ara-install`, never before.
 
-A FAILED `config.sh` is not safely retryable — it deletes `ara/ara_ver1.json` on
-the way out. Reinstall the SDK first:
-
+#After a failed config.sh. A failed run deletes ara/ara_ver1.json on the way out, so what's left is a half-written machine that the next run will happily build on top of. 
+#Wipe both the SDK install and the machine, reinstall, re-run
 ```bash
+sudo -E "$ARA_SYSROOT/run.sh" -s #Stop the machine before you delete
 rm -rf "$SDK_INST_DIR" "$ARA_SYSROOT"
 "$SDK_OUTPUT_DIR"/SDK-*.run "$SDK_INST_DIR"
 mkdir -p "$SDK_SYSROOT/ara/framework/1.0.0/share/samples"   # stale precondition in config.sh
@@ -328,15 +328,30 @@ mkdir -p "$SDK_SYSROOT/ara/framework/1.0.0/share/samples"   # stale precondition
 
 ### 7. Testing AvPilotFG.Driving
 ```bash
-sudo -E "$ARA_SYSROOT/run.sh" -c AvPilotFG.Off
+# 0. confirm what the log already says
+pgrep -x emd || echo "emd not running"
+pgrep -x nsomeipd || echo "nsomeipd not running"
+
+# 1. arm the capture BEFORE perceptiond starts — the check is a one-shot static
+mkdir -p /tmp/vp_frames && chmod 777 /tmp/vp_frames
+
+# 2. boot. run.sh -R execs ara_loader in the FOREGROUND, so background it.
+sudo -E "$ARA_SYSROOT/run.sh" -R > /tmp/machine.log 2>&1 &
+sleep 15
+pgrep -x emd && echo "machine up"
+
+# 3. now the state changes have something to talk to
+sudo mkdir -p /run/ara && sudo chown "$USER" /run/ara
+rm -f /tmp/vp_frames/*.jpg
+sudo -E "$ARA_SYSROOT/run.sh" -C AvPilotFG
 sudo -E "$ARA_SYSROOT/run.sh" -c AvPilotFG.Init
 sleep 10
-grep -a -E "init (ok|FAILED)" /tmp/machine.log | tail -4     # want four 'ok'
+grep -a -E "init (ok|FAILED)" /tmp/machine.log | tail -4
 
 sudo -E "$ARA_SYSROOT/run.sh" -c AvPilotFG.Driving
 sleep 25
-sudo -E "$ARA_SYSROOT/run.sh" -C AvPilotFG                   # want AvPilotFG.Driving
 for p in sensingd perceptiond planningd controld; do printf "%-12s %s\n" "$p" "$(pgrep -x $p || echo -)"; done
+ls /tmp/vp_frames/*.jpg | wc -l
 ```
 
 Expected — all four with PIDs, and in the log:
@@ -360,40 +375,47 @@ grep -a -E "\[INFO\]  ctrl:" /tmp/machine.log | tail -4
 `planningd` gone, the other three running, `age` climbing past 200 ms, and
 Control at `tyre=0.0000 accel=-4.000` once the 20-step horizon is exhausted.
 
-### 9. Testing Driving with visualization
-# 1. enable the overlay AND the WebRTC sink (both flags are required)
-sudo sed -i 's|^visualization_on .*|visualization_on = true|; s|^webrtc_on .*|webrtc_on = true|' \
-    /usr/share/visionpilot/config/vision_pilot.conf
-grep -nE "^(visualization_on|webrtc_on|webrtc_port)" /usr/share/visionpilot/config/vision_pilot.conf
+### 9. Stores driving video as MP4 16:9 
+# Get the frame rate stored during Driving
+```bash
+cd /tmp/vp_frames
+python3 - <<'EOF'
+import glob, os, datetime
+f = sorted(glob.glob("f*.jpg")); t = [os.path.getmtime(x) for x in f]
+bad = [i for i in range(1, len(f)) if t[i] < t[i-1]]
+print(f"MIXED - clean run is f000000..{f[bad[0]-1]} ({bad[0]} frames)" if bad
+      else f"{len(f)} frames, {t[-1]-t[0]:.1f}s, {(len(f)-1)/(t[-1]-t[0]):.2f} fps")
+EOF
+```
 
-# 2. the overlay's icons — a copy, not a grep. Only the absolute path is reachable under EM.
-sudo mkdir -p /usr/share/visionpilot/assets
-sudo cp -r ~/Demo_VisionPilot_CAPI/vision_pilot/VisionPilot/assets/icons \
-           /usr/share/visionpilot/assets/
-ls /usr/share/visionpilot/assets/icons     # brake.png collision.png right_lane_departure.png
+```bash
+cd /tmp/vp_frames
+FPS=5.15 # !!!It's returned above!!!
+START=0                 # first frame of your segment
+N=500                     # 40 s at 5.32 fps
+DUR=$(awk -v n=$N -v f=$FPS 'BEGIN{printf "%.3f", n/f}')
 
-# 3. GStreamer plugins the pipeline needs at run time
-gst-inspect-1.0 vp8enc    >/dev/null 2>&1 && echo "vp8enc ok"    || echo "vp8enc MISSING    → gstreamer1.0-plugins-good"
-gst-inspect-1.0 webrtcbin >/dev/null 2>&1 && echo "webrtcbin ok" || echo "webrtcbin MISSING → gstreamer1.0-plugins-bad"
+ffmpeg -y \
+  -framerate $FPS -start_number $START -t $DUR -i f%06d.jpg \
+  -f lavfi -t $DUR -i anullsrc=channel_layout=stereo:sample_rate=48000 \
+  -vf "scale=1920:-2:flags=lanczos,pad=1920:1080:0:(1080-ih)/2:color=black,setsar=1,format=yuv420p" \
+  -c:v libx264 -preset slow -crf 18 -profile:v high -level 4.0 \
+  -r 30 -g 60 \
+  -c:a aac -b:a 128k -shortest -movflags +faststart \
+  driving_1080p.mp4
 
-# 4. restart the function group so perceptiond re-reads the config
-sudo -E "$ARA_SYSROOT/run.sh" -c AvPilotFG.Off
-sudo -E "$ARA_SYSROOT/run.sh" -c AvPilotFG.Init
-sleep 10
-grep -a -E "init (ok|FAILED)" /tmp/machine.log | tail -4     # want four 'ok'
+ls -lh driving_1080p.mp4
+cp driving_1080p.mp4 /mnt/c/Users/$USER/Desktop/
+```
 
-sudo -E "$ARA_SYSROOT/run.sh" -c AvPilotFG.Driving
-sleep 25
-sudo -E "$ARA_SYSROOT/run.sh" -C AvPilotFG                   # want AvPilotFG.Driving
-for p in sensingd perceptiond planningd controld; do printf "%-12s %s\n" "$p" "$(pgrep -x $p || echo -)"; done
+### 10. Stop the running machine
+sudo -E "$ARA_SYSROOT/run.sh" -c AvPilotFG.Off    # stop the four AAs (lowercase c)
+sudo -E "$ARA_SYSROOT/run.sh" -s                  # stop the machine
 
-# 5. is the sink up?
-sudo ss -ltnp | grep ':8080' || echo "nothing on 8080"
-grep -a "WebRTCStreamer" /tmp/machine.log | tail -10
-grep -a "perceptiond: running" /tmp/machine.log | tail -1
+#Verify
+pgrep -x emd || echo "machine stopped"
+jobs                                              # the backgrounded -R should show Done
 
-# 6. On Windows host: open it — the HTML page and the WebSocket signalling share the one port
-#    http://localhost:8080/     (the server binds 0.0.0.0)
 
 #In case errors, look for details:
 ```bash

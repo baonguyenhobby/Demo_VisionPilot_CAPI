@@ -128,6 +128,20 @@
                   </TYPE-REFERENCE>
                 </CPP-IMPLEMENTATION-DATA-TYPE-ELEMENT>
                 <CPP-IMPLEMENTATION-DATA-TYPE-ELEMENT>
+                  <SHORT-NAME>rawWidth</SHORT-NAME>
+                  <DESC><L-2 L="EN">Width of the ORIGINAL capture, before the 2:1 top-crop and the resize to network input. Perception needs it to build the resized-pixel to world homography; width/height above are the network size and cannot substitute.</L-2></DESC>
+                  <TYPE-REFERENCE>
+                    <TYPE-REFERENCE-REF DEST="STD-CPP-IMPLEMENTATION-DATA-TYPE">/AUTOSAR/StdTypes/uint16_t</TYPE-REFERENCE-REF>
+                  </TYPE-REFERENCE>
+                </CPP-IMPLEMENTATION-DATA-TYPE-ELEMENT>
+                <CPP-IMPLEMENTATION-DATA-TYPE-ELEMENT>
+                  <SHORT-NAME>rawHeight</SHORT-NAME>
+                  <DESC><L-2 L="EN">Height of the ORIGINAL capture. With rawWidth this determines the top-crop and the scale factors in InferencePipeline::set_H_resized.</L-2></DESC>
+                  <TYPE-REFERENCE>
+                    <TYPE-REFERENCE-REF DEST="STD-CPP-IMPLEMENTATION-DATA-TYPE">/AUTOSAR/StdTypes/uint16_t</TYPE-REFERENCE-REF>
+                  </TYPE-REFERENCE>
+                </CPP-IMPLEMENTATION-DATA-TYPE-ELEMENT>
+                <CPP-IMPLEMENTATION-DATA-TYPE-ELEMENT>
                   <SHORT-NAME>pixelFormat</SHORT-NAME>
                   <DESC><L-2 L="EN">0 = BGR8 (OpenCV native). Reserved for the OAK-D and for NV12 capture paths.</L-2></DESC>
                   <TYPE-REFERENCE>
@@ -299,7 +313,7 @@
             <STD-CPP-IMPLEMENTATION-DATA-TYPE>
               <SHORT-NAME>Trajectory</SHORT-NAME>
               <DESC>
-                <L-2 L="EN">One planning cycle: longitudinal acceleration, the steering horizon, and the worst active warning.</L-2>
+                <L-2 L="EN">One planning cycle: longitudinal acceleration, the steering horizon, the ego speed the plan was computed against, and the worst active warning.</L-2>
               </DESC>
               <CATEGORY>STRUCTURE</CATEGORY>
               <NAMESPACES>
@@ -324,6 +338,13 @@
                 <CPP-IMPLEMENTATION-DATA-TYPE-ELEMENT>
                   <SHORT-NAME>accelerationMps2</SHORT-NAME>
                   <DESC><L-2 L="EN">Longitudinal acceleration request, m/s^2 (Plan.acceleration).</L-2></DESC>
+                  <TYPE-REFERENCE>
+                    <TYPE-REFERENCE-REF DEST="STD-CPP-IMPLEMENTATION-DATA-TYPE">/AUTOSAR/StdTypes/float</TYPE-REFERENCE-REF>
+                  </TYPE-REFERENCE>
+                </CPP-IMPLEMENTATION-DATA-TYPE-ELEMENT>
+                <CPP-IMPLEMENTATION-DATA-TYPE-ELEMENT>
+                  <SHORT-NAME>egoSpeedMps</SHORT-NAME>
+                  <DESC><L-2 L="EN">Ego speed the plan was computed against, m/s. Not a measurement Control should act on; it exists so a consumer can correlate a trajectory with the speed that produced it, and so the overlay can show a speed without Perception taking a VehicleStatus dependency.</L-2></DESC>
                   <TYPE-REFERENCE>
                     <TYPE-REFERENCE-REF DEST="STD-CPP-IMPLEMENTATION-DATA-TYPE">/AUTOSAR/StdTypes/float</TYPE-REFERENCE-REF>
                   </TYPE-REFERENCE>

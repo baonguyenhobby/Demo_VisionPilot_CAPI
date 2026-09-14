@@ -26,6 +26,9 @@
 #include <thread>
 #include <vector>
 
+#include <cstdio>
+#include <filesystem>
+#include <opencv2/imgcodecs.hpp>   // main.cpp only pulls in core.hpp today
 #include <opencv2/core.hpp>
 
 #include <common/types.hpp>
@@ -148,6 +151,7 @@ int main(int argc, char** argv)
     ap::FrameRingReader ring;
     cv::Mat warped, resized;
     Plan last_plan{};                    // for the overlay only
+    double last_ego_v = 0.0;             // ditto - the speed last_plan was computed against
     std::uint32_t out_seq  = 0U;
     std::uint32_t lapped   = 0U;         // frames discarded because the writer lapped us
 
@@ -167,6 +171,7 @@ int main(int argc, char** argv)
                     last_plan.steering.assign(t->steeringHorizonRad.begin(),
                                               t->steeringHorizonRad.end());
                     last_plan.warnings.assign(1, static_cast<Warning>(t->warning));
+                    last_ego_v = t->egoSpeedMps;
                 },
                 1U);
         }
@@ -198,7 +203,20 @@ int main(int argc, char** argv)
 
                 if (!h_resized_set)
                 {
-                    pipeline.set_H_resized(H, cv::Size(d->width, d->height));
+                    // set_H_resized derives the top-crop and the scale factors
+                    // from the CAPTURE size. Passing the network size makes T
+                    // the identity, H_resized becomes the raw-pixel H applied
+                    // to resized pixels, every projected waypoint lands outside
+                    // the 0.5-120 m filter in project_waypoints, RANSAC never
+                    // fits, and path_valid is false forever - no corridor, and
+                    // cte/epsi pinned at exactly zero. Silent, so check loudly.
+                    if (d->rawWidth == 0U || d->rawHeight == 0U)
+                    {
+                        VP_ERROR("perceptiond: descriptor carries no capture size "
+                                 "- sensingd is older than this build");
+                        return;
+                    }
+                    pipeline.set_H_resized(H, cv::Size(d->rawWidth, d->rawHeight));
                     h_resized_set = true;
                 }
 
@@ -242,9 +260,23 @@ int main(int argc, char** argv)
                     // widen an interface. If the readout matters, the honest fix
                     // is for Trajectory to carry the ego speed its plan was
                     // computed against — useful for correlation anyway.
-                    cv::Mat display = viz.build_frame(resized, *r, last_plan, 0.0,
+                    cv::Mat display = viz.build_frame(resized, *r, last_plan, last_ego_v,
                                                       pipeline.H_resized(), cfg.speed_limit);
                     viz.render_frame(display);
+
+                    // Clip capture. Armed by the DIRECTORY existing, so recording
+                    // is switched on from the shell with no rebuild and no
+                    // manifest edit. Absolute path: under EM the working
+                    // directory is not the build tree. Evaluated once.
+                    static const bool kDump =
+                        std::filesystem::is_directory("/tmp/vp_frames");
+                    if (kDump)
+                    {
+                        static std::uint32_t dump_n = 0;
+                        char p[64];
+                        std::snprintf(p, sizeof p, "/tmp/vp_frames/f%06u.jpg", dump_n++);
+                        cv::imwrite(p, display, {cv::IMWRITE_JPEG_QUALITY, 95});
+                    }
                 }
             },
             1U);

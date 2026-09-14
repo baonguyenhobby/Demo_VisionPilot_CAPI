@@ -188,6 +188,8 @@ int main(int argc, char** argv)
         d.generation        = generation;
         d.width             = static_cast<std::uint16_t>(kNetW);
         d.height            = static_cast<std::uint16_t>(kNetH);
+        d.rawWidth          = static_cast<std::uint16_t>(captured.cols);
+        d.rawHeight         = static_cast<std::uint16_t>(captured.rows);
         d.stride            = static_cast<std::uint32_t>(warped.step);
         d.pixelFormat       = 0U;   // BGR8, OpenCV native
         d.valid             = 1U;

@@ -260,6 +260,7 @@ int main(int argc, char** argv)
                 out.timestampNs      = st->timestampNs;   // propagate from capture, not from now
                 out.seqCounter       = ++out_seq;
                 out.accelerationMps2 = static_cast<float>(plan.acceleration);
+                out.egoSpeedMps      = static_cast<float>(ego_v);
                 out.warning          = worst_warning(plan.warnings);
 
                 // Copy what the planner produced; pad the remainder with the

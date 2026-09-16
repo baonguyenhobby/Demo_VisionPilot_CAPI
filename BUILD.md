@@ -257,7 +257,7 @@ ls ~/data/test_data/
 ```
 
 ```bash
-D="$HOME/data/test_data/test_open_lane_2"      # the clip you want
+D="$HOME/dataset/test_data/test_open_lane_2"      # the clip you want
 
 sudo sed -i "s|^source.input_video .*|source.input_video         = $D/input.mp4|"        /usr/share/visionpilot/config/vision_pilot_test.conf
 sudo sed -i "s|^source.input_vehicle_speed .*|source.input_vehicle_speed = $D/frame_speed.txt|" /usr/share/visionpilot/config/vision_pilot_test.conf
@@ -291,22 +291,6 @@ sudo sed -i 's|^visualization_on .*|visualization_on = true|; s|^webrtc_on .*|we
 
 ### 6. Configure the machine
 
-```bash
-sudo -v                                        # else backgrounded run.sh exits 255 with an EMPTY log
-
-cd ~/Demo_VisionPilot_CAPI/vision_pilot/VisionPilot/build
-sudo mkdir -p /run/ara && sudo chown "$USER" /run/ara    # else "EMD exited with 255"
-
-sudo ip link add ara0 type dummy                         # else every daemon: "Cannot assign requested address"
-sudo ip addr add 192.168.14.98/24 dev ara0
-sudo ip link set ara0 up
-sudo ip route add 224.0.0.0/4 dev ara0
-```
-
-`ara0` carries the SDK's own default machine address, so the machine survives a
-DHCP change. A real host interface won't do: raw sockets fail on WSL2's mirrored
-adapters, which kills `tsyncd` and takes `MachineFG` down with it.
-
 # Note: Configure the machine — after every `make ara-install`
 ```bash
 cd ~/Demo_VisionPilot_CAPI
@@ -332,6 +316,22 @@ mkdir -p "$SDK_SYSROOT/ara/framework/1.0.0/share/samples"   # stale precondition
 pgrep -x emd || echo "emd not running"
 pgrep -x nsomeipd || echo "nsomeipd not running"
 
+sudo -v                                        # else backgrounded run.sh exits 255 with an EMPTY log
+
+sudo ip link add ara0 type dummy                         # else every daemon: "Cannot assign requested address"
+sudo ip addr add 192.168.14.98/24 dev ara0
+sudo ip link set ara0 up
+sudo ip route add 224.0.0.0/4 dev ara0
+
+cd ~/Demo_VisionPilot_CAPI/vision_pilot/VisionPilot/build
+sudo mkdir -p /run/ara && sudo chown "$USER" /run/ara # else "EMD exited with 255"
+```
+
+`ara0` carries the SDK's own default machine address, so the machine survives a
+DHCP change. A real host interface won't do: raw sockets fail on WSL2's mirrored
+adapters, which kills `tsyncd` and takes `MachineFG` down with it.
+
+```bash
 # 1. arm the capture BEFORE perceptiond starts — the check is a one-shot static
 mkdir -p /tmp/vp_frames && chmod 777 /tmp/vp_frames
 
@@ -341,7 +341,6 @@ sleep 15
 pgrep -x emd && echo "machine up"
 
 # 3. now the state changes have something to talk to
-sudo mkdir -p /run/ara && sudo chown "$USER" /run/ara
 rm -f /tmp/vp_frames/*.jpg
 sudo -E "$ARA_SYSROOT/run.sh" -C AvPilotFG
 sudo -E "$ARA_SYSROOT/run.sh" -c AvPilotFG.Init
@@ -349,7 +348,7 @@ sleep 10
 grep -a -E "init (ok|FAILED)" /tmp/machine.log | tail -4
 
 sudo -E "$ARA_SYSROOT/run.sh" -c AvPilotFG.Driving
-sleep 25
+sleep 19
 for p in sensingd perceptiond planningd controld; do printf "%-12s %s\n" "$p" "$(pgrep -x $p || echo -)"; done
 ls /tmp/vp_frames/*.jpg | wc -l
 ```
@@ -390,9 +389,9 @@ EOF
 
 ```bash
 cd /tmp/vp_frames
-FPS=5.15 # !!!It's returned above!!!
+FPS=5.6 # !!!It's returned above!!!
 START=0                 # first frame of your segment
-N=500                     # 40 s at 5.32 fps
+N=353                   # 62.9 s at 5.6 fps
 DUR=$(awk -v n=$N -v f=$FPS 'BEGIN{printf "%.3f", n/f}')
 
 ffmpeg -y \

@@ -323,7 +323,6 @@ sudo ip addr add 192.168.14.98/24 dev ara0
 sudo ip link set ara0 up
 sudo ip route add 224.0.0.0/4 dev ara0
 
-cd ~/Demo_VisionPilot_CAPI/vision_pilot/VisionPilot/build
 sudo mkdir -p /run/ara && sudo chown "$USER" /run/ara # else "EMD exited with 255"
 ```
 
@@ -389,9 +388,9 @@ EOF
 
 ```bash
 cd /tmp/vp_frames
-FPS=5.6 # !!!It's returned above!!!
+FPS=5.3 # !!!It's returned above!!!
 START=0                 # first frame of your segment
-N=353                   # 62.9 s at 5.6 fps
+N=884                   # 166.1 s at 5.3 fps
 DUR=$(awk -v n=$N -v f=$FPS 'BEGIN{printf "%.3f", n/f}')
 
 ffmpeg -y \

@@ -101,7 +101,14 @@ bool FrameRingReader::read(std::uint32_t slot, std::uint32_t expected_generation
     // what we hold is a mix of two frames. Discard it. A ring that never
     // reports a discard under a deliberately slowed reader is not detecting
     // this race — it is losing it silently.
-    return sh->generation.load(std::memory_order_acquire) == expected_generation;
+    //
+    // The fence is what makes this check sound. An acquire LOAD only orders the
+    // accesses that come after it, so the pixel reads above could still be
+    // satisfied after the re-read below on a weakly ordered CPU (the Orin is
+    // ARM64), and a frame the writer had started overwriting would pass. The
+    // acquire FENCE keeps every read above ahead of the re-read.
+    std::atomic_thread_fence(std::memory_order_acquire);
+    return sh->generation.load(std::memory_order_relaxed) == expected_generation;
 }
 
 }  // namespace visionpilot::ap

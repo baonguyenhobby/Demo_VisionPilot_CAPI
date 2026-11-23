@@ -85,15 +85,31 @@ int main(int argc, char** argv)
     ap::ApRuntime runtime("");
     if (!runtime.ok()) { VP_ERROR("perceptiond: ara::core::Initialize() failed"); return 1; }
 
-    // Init phase: the engine and the inference pipeline are already constructed
-    // above, so reaching this line IS the check -- a missing or malformed .onnx
-    // throws there, before any service is offered. The session does not survive
-    // into the run phase; this is fail-fast, not warm-up.
+    // Init phase: construct the engine and the inference pipeline here, so a
+    // missing or malformed .onnx, or a missing H.yaml, fails AvPilotFG.Init
+    // instead of crashing perceptiond on entry to Driving. The sessions do not
+    // survive into the run phase; this is fail-fast, not warm-up.
     if (phase == vpap::Phase::Init)
     {
         runtime.report_running();
-        VP_INFO("perceptiond: init ok (engine and pipeline constructed)");
-        return 0;
+        bool ok = true;
+        try
+        {
+            ve::OnnxEngine engine(cfg.engine);
+            vm::InferencePipeline pipeline(engine, cfg.inference);
+            if (load_matrix("H.yaml", "H").empty())
+            {
+                VP_ERROR("perceptiond: H.yaml has no matrix 'H'");
+                ok = false;
+            }
+        }
+        catch (const std::exception& e)
+        {
+            VP_ERROR("perceptiond: %s", e.what());
+            ok = false;
+        }
+        VP_INFO("perceptiond: init %s", ok ? "ok" : "FAILED");
+        return ok ? 0 : 1;
     }
 
     // ── Inference ────────────────────────────────────────────────────────────

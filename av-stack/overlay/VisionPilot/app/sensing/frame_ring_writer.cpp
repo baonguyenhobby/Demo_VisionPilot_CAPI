@@ -108,7 +108,14 @@ std::uint32_t FrameRingWriter::write(const cv::Mat& warped, const cv::Mat& resiz
 
     // Odd generation marks the slot as being written. A reader that catches it
     // here discards rather than returning half a frame.
-    sh->generation.store(generation_ | kWritingMark, std::memory_order_release);
+    //
+    // A release STORE only orders the writes that come before it, so on its own
+    // it would let the pixel writes below become visible ahead of the odd mark
+    // (ARM64 reorders stores), and a reader could see new pixels under the old,
+    // even generation. The release FENCE after the store keeps the mark ahead of
+    // every write below.
+    sh->generation.store(generation_ | kWritingMark, std::memory_order_relaxed);
+    std::atomic_thread_fence(std::memory_order_release);
 
     std::memcpy(px, warped.data, image_bytes_);
     std::memcpy(px + image_bytes_, resized.data, image_bytes_);
